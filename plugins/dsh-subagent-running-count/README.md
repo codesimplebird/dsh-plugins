@@ -38,7 +38,9 @@
 ```
 
 ```powershell
-chrome --headless=new --dump-dom file:///.../roster.html    # 先 node test/roster-browser.mjs 生成
+node test/roster-browser.mjs                                 # 生成页面并打印路径
+chrome --headless=new --dump-dom --user-data-dir=%TEMP%\chrome-headless file:///.../roster.html
+# 本机开着 Chrome 时必须加 --user-data-dir，否则可能复用默认配置、dump 输出为空
 ```
 
 ## 已知边界
