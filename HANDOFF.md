@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-20 23:25。
+> 换工作区后从这一页开始读。最后更新 2026-11-20 23:36（切区核验已通过，见优化记录第十八轮）。
 
 ## 这是什么
 
@@ -27,8 +27,9 @@
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
 
 - profile 依赖：`file:C:/dev/dsh-optimize/plugins/<name>`（**绝对路径**，换机要改）
-- 配置解析：**1372 行、0 异常**（用临时 profile 校验的）
-- git：干净，最新提交 `8ec7c19`
+- 配置解析：**1372 行、0 异常**（用临时 profile 校验的；源文件 `cordis.patch.yml` 是 636 行，
+  1372 指 `--dump-config` 的输出行数）
+- git：干净，切区基线 `aa08ec7`（3 次提交、37 文件）；核验记录见最新提交
 
 ## 唯一未完成的事
 
@@ -53,6 +54,10 @@
    catalog entry 里（React fiber 的 `memoizedProps.catalog.entries`），DOM 上看不到。
 6. 客户端插件**拿不到认证 token，也进不了渲染进程**，所以 UI 效果只能靠
    「镜像真实结构 + Chrome headless 跑插件 bundle」自测，最终要用户截图确认。
+7. **workspace-write 沙箱在新路径会全灭**：`C:\dev\dsh-optimize` 缺「写所有者」，
+   `grantWrite` 报 Win32 5，pwsh/git 起不来（与旧 `C:\dev\qingjian` 同名问题）。
+   本仓库核验是在 **danger-full-access** 下完成的；切回 workspace-write 前先跑
+   `diagnose-windows-sandbox-acl` 补权限（备份 `C:\dev\dsh-acl-recovery`）。
 
 ## 自测方式
 
