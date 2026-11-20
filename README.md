@@ -17,7 +17,7 @@ C:\dev\dsh-optimize\
 | 插件 | 作用 | 状态 |
 |---|---|---|
 | `dsh-turn-tps` | 状态栏「本轮 tok/s」药丸 + 底部用量面板 | 已装 |
-| `dsh-subagent-running-count` | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧、超 8 条折叠 | 已装 |
+| `dsh-subagent-running-count` | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧、超 5 条折叠 | 已装 |
 | `dsh-hide-completed-subagents` | 隐藏已完成行 | 已卸载，留档 |
 
 安装方式（profile 用**绝对路径**引用源码，换机器要改路径）：

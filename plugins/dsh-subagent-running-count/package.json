@@ -1,6 +1,6 @@
 {
   "name": "dsh-subagent-running-count",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Chip shows only running subagents; roster ordered newest-first with creation times, oldest rows collapsed.",
   "type": "module",

@@ -11,8 +11,11 @@
 // Writes %TEMP%\roster.html; run:
 //   chrome --headless=new --dump-dom file:///.../roster.html
 import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const PLUGIN = process.env.USERPROFILE + '\\.dsh\\plugins\\dsh-subagent-running-count\\src\\client.js';
+// Resolved relative to this file, so the test also works from the installed
+// copy under <profile>/node_modules/<plugin>/test/.
+const PLUGIN = fileURLToPath(new URL('../src/client.js', import.meta.url));
 const bundle = readFileSync(PLUGIN, 'utf8');
 
 const ROWS = 10;

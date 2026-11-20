@@ -14,8 +14,11 @@
 // Covered cases: running > 0, running == 0 (hidden span absent), English UI,
 // and React writing the original label back (observer re-applies).
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const PLUGIN = process.env.USERPROFILE + '\\.dsh\\plugins\\dsh-subagent-running-count\\src\\client.js';
+// Resolved relative to this file, so the test also works from the installed
+// copy under <profile>/node_modules/<plugin>/test/.
+const PLUGIN = fileURLToPath(new URL('../src/client.js', import.meta.url));
 let pass = 0;
 let fail = 0;
 function check(name, actual, expected) {

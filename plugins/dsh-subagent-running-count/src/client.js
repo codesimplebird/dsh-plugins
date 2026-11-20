@@ -43,7 +43,7 @@ window.__ModuleLoader__.load({
     const TIME_CLASS = 'dsh-roster-time'
     const HIDDEN_CLASS = 'dsh-roster-row-collapsed'
     const TOGGLE_ATTR = 'data-dsh-roster-toggle'
-    const COLLAPSE_AFTER = 8
+    const COLLAPSE_AFTER = 5
 
     /** Per-panel expansion state; panels are recreated on every open. */
     const expandedPanels = new WeakSet()
