@@ -1,0 +1,35 @@
+{
+  "name": "dsh-turn-tps",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Adds a per-turn tok/s pill to the DSH composer dock, next to the built-in session-cumulative activity pill.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin"
+  ],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ],
+      "platform": "web"
+    }
+  }
+}

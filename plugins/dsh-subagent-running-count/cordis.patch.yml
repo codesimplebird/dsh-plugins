@@ -1,0 +1,4 @@
+# dsh-subagent-running-count bundle layer: inserts the chip-rewrite plugin row.
+- insert:
+    - id: subagent-running-count
+      name: 'dsh-subagent-running-count'

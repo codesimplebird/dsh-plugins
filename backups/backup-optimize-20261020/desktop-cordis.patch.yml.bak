@@ -1,0 +1,189 @@
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+- id: ui-settings-general
+  name: "@deepseek-ai/dsh-client-ui-settings-general"
+  config:
+    welcomeNoticeVersion: 2026-08-13.1
+- id: ui-theme
+  name: "@deepseek-ai/dsh-client-ui-theme"
+  config:
+    preference: dark
+- id: locale
+  name: "@deepseek-ai/dsh-client-locale"
+  config:
+    preference: zh
+- id: ui-conversation
+  name: "@deepseek-ai/dsh-client-ui-conversation"
+  config:
+    busyEnter: steer
+- id: llm-deepseek
+  name: "@deepseek-ai/dsh-llm-deepseek-api-key"
+  config:
+    models:
+      - id: deepseek-v4-flash
+        name: DeepSeek-V4-Flash
+        contextWindow: 1000000
+      - id: deepseek-v4-pro
+        name: DeepSeek-V4-Pro
+        contextWindow: 1000000
+      - id: deepseek-flash
+        name: deepseek-flash
+- id: ui-chat
+  name: "@deepseek-ai/dsh-client-ui-chat"
+  config:
+    transcriptView: standard
+    performanceUsage: detailed
+- id: ui-settings
+  name: "@deepseek-ai/dsh-client-ui-settings"
+  config:
+    enabled: true
+- id: ui-settings-account
+  name: "@deepseek-ai/dsh-client-ui-settings-account"
+  config:
+    version: 1
+    step: done
+    usage: detailed
+    developerTools: true
+    purpose: null
+    process: standard
+    completion: api-key
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: workbuddy
+    model: deepseek-v4.1-flash
+    reasoningEffort: max
+- id: plugin-market
+  name: "@deepseek-ai/dsh-plugin-market"
+  config:
+    indexes:
+      - https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
+- id: dsh-connect-workbuddy
+  name: dsh-connect-workbuddy
+  config:
+    regions:
+      global:
+        enabled: true
+        showCreditsInMainUi: true
+        creditPosition: composer
+        lastCatalog:
+          - id: default-model
+            name: Auto
+            contextWindow: 176000
+            maxTokens: 24000
+            creditMultiplier: 0.79
+          - id: fast-model
+            name: Fast
+            contextWindow: 200000
+            maxTokens: 32000
+            creditMultiplier: 0.34
+          - id: balanced-model
+            name: Balanced
+            contextWindow: 256000
+            maxTokens: 32000
+            creditMultiplier: 0.59
+          - id: primary-model
+            name: Primary
+            contextWindow: 272000
+            maxTokens: 72000
+            creditMultiplier: 3.31
+          - id: deep-model
+            name: Deep
+            contextWindow: 176000
+            maxTokens: 24000
+            creditMultiplier: 3.33
+          - id: deepseek-v4.1-flash
+            name: Deepseek-V4.1-Flash
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 0
+          - id: gpt-6-astra
+            name: GPT-6-Astra
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 6.67
+          - id: hy4-preview
+            name: Hy4 preview
+            contextWindow: 1000000
+            maxTokens: 64000
+            creditMultiplier: 0
+          - id: hy3
+            name: Hy3
+            contextWindow: 192000
+            maxTokens: 64000
+            creditMultiplier: 0
+          - id: gpt-5.6-sol
+            name: GPT-5.6-Sol
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 3.47
+          - id: gpt-5.6-terra
+            name: GPT-5.6-Terra
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 1.39
+          - id: gpt-5.6-luna
+            name: GPT-5.6-Luna
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 0.14
+          - id: gpt-5.5
+            name: GPT-5.5
+            contextWindow: 1000000
+            maxTokens: 128000
+            creditMultiplier: 3.31
+          - id: gpt-5.4
+            name: GPT-5.4
+            contextWindow: 272000
+            maxTokens: 72000
+            creditMultiplier: 1.65
+          - id: gpt-5.3-codex
+            name: GPT-5.3-Codex
+            contextWindow: 272000
+            maxTokens: 72000
+            creditMultiplier: 1.25
+          - id: gemini-3.5-flash
+            name: Gemini-3.5-Flash
+            contextWindow: 1000000
+            maxTokens: 65536
+            creditMultiplier: 0.99
+          - id: glm-5.3
+            name: GLM-5.3
+            contextWindow: 1000000
+            maxTokens: 48000
+            creditMultiplier: 0.79
+          - id: glm-5.2
+            name: GLM-5.2
+            contextWindow: 1000000
+            maxTokens: 48000
+            creditMultiplier: 0.79
+          - id: kimi-k3
+            name: Kimi-K3
+            contextWindow: 1000000
+            maxTokens: 32000
+            creditMultiplier: 1.62
+          - id: kimi-k2.6
+            name: Kimi-K2.6
+            contextWindow: 256000
+            maxTokens: 32000
+            creditMultiplier: 0.52
+        enabledModelIds:
+          - deepseek-v4.1-flash
+          - hy3
+          - hy4-preview
+        imageModelIds:
+          - hy4-preview
+          - hy3
+          - deepseek-v4.1-flash
+        offModelIds: []
+        contextBudgets:
+          deepseek-v4.1-flash: 1000000
+          hy4-preview: 1000000
+        pool:
+          enabled: false
+          targetModelId: deepseek-v4.1-flash
+          probeInputTokens: 100000
+          memberAccountIds:
+            - b7fd0922db4b87aaddfd7f60
+          orderAccountIds: []

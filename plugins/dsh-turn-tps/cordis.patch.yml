@@ -1,0 +1,5 @@
+# dsh-turn-tps bundle layer: inserts the turn-TPS pill plugin row.
+# Stable row id so profile patches can target it.
+- insert:
+    - id: turn-tps-pill
+      name: 'dsh-turn-tps'

@@ -1,0 +1,31 @@
+{
+  "name": "dsh-subagent-running-count",
+  "version": "0.3.3",
+  "private": true,
+  "description": "Chip shows only running subagents; roster ordered newest-first with creation times, oldest rows collapsed.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin"
+  ],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "test"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  }
+}

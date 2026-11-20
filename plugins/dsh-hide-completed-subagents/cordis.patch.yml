@@ -1,0 +1,4 @@
+# dsh-hide-completed-subagents bundle layer: inserts the DOM-filter plugin row.
+- insert:
+    - id: hide-completed-subagents
+      name: 'dsh-hide-completed-subagents'

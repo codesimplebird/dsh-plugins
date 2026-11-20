@@ -1,0 +1,28 @@
+{
+  "name": "dsh-hide-completed-subagents",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hides finished entries in the DSH subagent roster so only running/pending ones remain listed.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["dsh-plugin"],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  }
+}

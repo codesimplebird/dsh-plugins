@@ -1,0 +1,3 @@
+name: 标准模式(子代理 Flash)
+description: 基于官方标准模式:主会话负责分析与规划(默认 deepseek-v4-pro),子代理统一用 deepseek-v4-flash 执行。
+order: 2
