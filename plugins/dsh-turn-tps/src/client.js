@@ -64,6 +64,8 @@ window.__ModuleLoader__.load({
       grid: 'dtt-grid',
       foot: 'dtt-foot',
       taskTime: 'dtt-task-time',
+      taskText: 'dtt-task-text',
+      taskReset: 'dtt-task-reset',
     }
 
     // Feature stylesheet. Colours come from semantic aliases only; the panel
@@ -134,6 +136,23 @@ window.__ModuleLoader__.load({
   line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* Reset/restore control: reads as a quiet inline link, not a second button in
+   the footer row. It lives inside the annotation, after the time text. */
+.${CLS.taskReset} {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  opacity: 0.85;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.${CLS.taskReset}:hover {
+  opacity: 1;
 }
 .${CLS.panel} {
   position: fixed;
@@ -258,6 +277,11 @@ window.__ModuleLoader__.load({
       'state.done': '已完成',
       'empty': '暂无可测量的数据',
       'task.total': '任务总用时 {duration}',
+      'task.suffix': '· 自本轮起',
+      'task.reset': '重置',
+      'task.restore': '恢复',
+      'task.resetTitle': '从当前这一轮开始累计',
+      'task.restoreTitle': '恢复为整个会话累计',
     }
     const en = {
       'pill.label': 'turn {tps} tok/s',
@@ -279,6 +303,11 @@ window.__ModuleLoader__.load({
       'state.done': 'Done',
       'empty': 'No measurable data yet',
       'task.total': 'Total task time {duration}',
+      'task.suffix': '· from this turn',
+      'task.reset': 'Reset',
+      'task.restore': 'Restore',
+      'task.resetTitle': 'Count from the current turn',
+      'task.restoreTitle': 'Count the whole session again',
     }
 
     function fill(template, params) {
@@ -382,14 +411,27 @@ window.__ModuleLoader__.load({
     // margin so the line reads ~4px under the actions row.
     const TASK_TIME_ATTR = 'data-dtt-task-time'
     const TASK_TIME_GAP = 4
+    const TASK_BASELINE_PREFIX = 'dsh-turn-tps:task-baseline:'
     const CLOCKISH_TEXT = /(\d{1,2}:\d{2})|(\d{1,2}月\d{1,2}日)|(\d{1,2}\/\d{1,2})/u
     const CLOCK_ONLY_TEXT = /^\d{1,2}:\d{2}$/u
     const CLOCK_DATE_TEXT = /^(\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})\s+\d{1,2}:\d{2}$/u
     const FOOTER_HINTS = '[data-clock],[data-turn-tail]'
     const FOOTER_TRIGGER = 'button[aria-haspopup="dialog"]'
+    /** Session the annotation currently reflects; null until the slot injects one. */
+    let taskSessionId = null
+    /** { baseIndex, baseWall } while counting from a reset point; null = whole session. */
+    let taskBaseline = null
+    /** Newest turns array seen, kept so the reset button can act without a snapshot. */
+    let lastTurns = null
+    /** Published annotation: text (null removes the line) plus the button mode. */
     let taskTimeText = null
+    let taskTimeAction = 'reset'
     let taskSyncScheduled = false
     let lastTaskText = null
+    let lastTaskAction = null
+    /** What the mounted node currently shows, so the observer can skip unchanged syncs. */
+    let renderedTaskText = null
+    let renderedTaskAction = null
     /** Cached { node, row } of the last placement; lets the observer skip a scan. */
     let taskAnchor = null
 
@@ -399,6 +441,229 @@ window.__ModuleLoader__.load({
       } catch (error) {
         return zh
       }
+    }
+
+    // ---- per-session reset baseline ---------------------------------------
+    //
+    // "重置" remembers the last turn index and that turn's wall time at the
+    // moment of the click. From then on the line counts
+    //   Σ turns after the reset point  +  (current turn's wall - the wall it
+    //                                     already had at reset time)
+    // which is 0 right at the click, grows with the current turn, and later
+    // turns count in full. The point is stored per Session:
+    //   dsh-turn-tps:task-baseline:<sessionId> = {"baseIndex":N,"baseWall":ms}
+    // and every localStorage touch is guarded: file:// pages and private
+    // windows can throw on the getter itself, not only on read/write.
+    function localStorageStore() {
+      try {
+        if (typeof window === 'undefined') return null
+        const storage = window.localStorage
+        return storage && typeof storage.getItem === 'function' ? storage : null
+      } catch (error) {
+        return null
+      }
+    }
+
+    function baselineStorageKey(sessionId) {
+      return sessionId === null ? null : TASK_BASELINE_PREFIX + sessionId
+    }
+
+    /** Stored baseline for one Session; a corrupt value is dropped, not reused. */
+    function readStoredBaseline(sessionId) {
+      let key = null
+      try {
+        if (sessionId === null) return null
+        const storage = localStorageStore()
+        key = baselineStorageKey(sessionId)
+        if (storage === null || key === null) return null
+        const raw = storage.getItem(key)
+        if (raw === null || raw === '') return null
+        const parsed = JSON.parse(raw)
+        const baseIndex = parsed && parsed.baseIndex
+        const baseWall = parsed && parsed.baseWall
+        if (!Number.isInteger(baseIndex) || baseIndex < -1 || !isNum(baseWall) || baseWall < 0) {
+          throw new Error('malformed task baseline')
+        }
+        return { baseIndex, baseWall }
+      } catch (error) {
+        try {
+          const storage = localStorageStore()
+          if (storage !== null && key !== null) storage.removeItem(key)
+        } catch (removeError) {
+          // Storage unavailable: stay memory-only.
+        }
+        return null
+      }
+    }
+
+    /** Persist the active baseline, or delete the key when counting the session. */
+    function persistBaseline() {
+      try {
+        const storage = localStorageStore()
+        const key = baselineStorageKey(taskSessionId)
+        if (storage === null || key === null) return
+        if (taskBaseline === null) {
+          storage.removeItem(key)
+        } else {
+          storage.setItem(key, JSON.stringify({
+            baseIndex: taskBaseline.baseIndex,
+            baseWall: taskBaseline.baseWall,
+          }))
+        }
+      } catch (error) {
+        // Private mode/quota: the reset point still works in memory.
+      }
+    }
+
+    /**
+     * Adopt the Session id handed to `inject`; a switch loads that Session's
+     * stored baseline and drops the previous Session's published figures (the
+     * next snapshot render refills them). Without an id the baseline stays
+     * memory-only instead of leaking through a global key.
+     */
+    function captureSession(sessionId) {
+      const next = typeof sessionId === 'string' && sessionId.length > 0 ? sessionId : null
+      if (next === taskSessionId) return
+      taskSessionId = next
+      taskBaseline = readStoredBaseline(next)
+      lastTurns = null
+      lastTaskText = null
+      lastTaskAction = null
+      taskTimeText = null
+      taskTimeAction = 'reset'
+      scheduleTaskSync()
+    }
+
+    /** Baseline index clamped to the live turns; null when the record is unusable. */
+    function effectiveBaselineIndex(turns) {
+      if (taskBaseline === null) return null
+      const index = taskBaseline.baseIndex
+      const wall = taskBaseline.baseWall
+      if (!Number.isInteger(index) || index < -1 || !isNum(wall) || wall < 0) return null
+      const length = Array.isArray(turns) ? turns.length : 0
+      if (length === 0) return -1
+      // Turns reloaded/shrank: measure from the last turn that still exists.
+      return index >= length ? length - 1 : index
+    }
+
+    function rawTurnsTotal(turns) {
+      let sum = 0
+      for (const turn of turns) if (isNum(turn && turn.wall)) sum += turn.wall
+      return sum > 0 ? sum : null
+    }
+
+    /**
+     * Total task wall time by the active baseline rule; null while nothing is
+     * measurable (the caller then removes the whole annotation row).
+     */
+    function computeTaskTotal(turns) {
+      try {
+        const list = Array.isArray(turns) ? turns : []
+        if (list.length === 0) return null
+        let measurable = false
+        for (const turn of list) {
+          if (isNum(turn && turn.wall)) {
+            measurable = true
+            break
+          }
+        }
+        if (!measurable) return null
+        if (taskBaseline === null) return rawTurnsTotal(list)
+        const index = effectiveBaselineIndex(list)
+        if (index === null) {
+          // Unreadable reset record: fall back to the whole session and forget it.
+          taskBaseline = null
+          persistBaseline()
+          return rawTurnsTotal(list)
+        }
+        const wallAt = (position) => (
+          position >= 0 && position < list.length && isNum(list[position] && list[position].wall)
+            ? list[position].wall
+            : 0
+        )
+        let total = Math.max(0, wallAt(index) - taskBaseline.baseWall)
+        for (let i = index + 1; i < list.length; i += 1) total += wallAt(i)
+        return total
+      } catch (error) {
+        return null
+      }
+    }
+
+    /** The published line; a baseline appends "· 自本轮起" / "· from this turn". */
+    function buildTaskText(ms) {
+      const dict = currentDict()
+      const duration = formatTaskDuration(ms, dict === zh)
+      if (duration === null) return null
+      const line = fill(dict['task.total'], { duration })
+      return taskBaseline === null ? line : line + ' ' + dict['task.suffix']
+    }
+
+    /**
+     * Publish text and button mode. The cache compares both: the suffix makes a
+     * reset to 0 s a visible change, and the mode keeps the button in step even
+     * if a future locale renders the same words for both states.
+     */
+    function publishTaskTotal(ms) {
+      const action = taskBaseline === null ? 'reset' : 'restore'
+      const next = buildTaskText(ms)
+      if (next === lastTaskText && action === lastTaskAction) return
+      lastTaskText = next
+      lastTaskAction = action
+      taskTimeText = next
+      taskTimeAction = action
+      scheduleTaskSync()
+    }
+
+    /** Snapshot path: remember the turns, then publish under the baseline rule. */
+    function publishSnapshotTurns(turns) {
+      lastTurns = Array.isArray(turns) ? turns : null
+      publishTaskTotal(computeTaskTotal(lastTurns))
+    }
+
+    /** Reset/restore click: never let it bubble into the copy/share handlers. */
+    function onTaskToggleClick(event) {
+      try {
+        event.preventDefault()
+        event.stopPropagation()
+      } catch (error) {
+        // Exotic event object: the state change below is what matters.
+      }
+      try {
+        const turns = Array.isArray(lastTurns) ? lastTurns : []
+        if (taskBaseline === null) {
+          const baseIndex = turns.length > 0 ? turns.length - 1 : -1
+          taskBaseline = {
+            baseIndex,
+            baseWall: baseIndex >= 0 && isNum(turns[baseIndex] && turns[baseIndex].wall)
+              ? turns[baseIndex].wall
+              : 0,
+          }
+        } else {
+          taskBaseline = null
+        }
+        persistBaseline()
+        publishTaskTotal(computeTaskTotal(turns))
+        // The click must update the row in this frame, not on the next mutation.
+        syncTaskTime()
+      } catch (error) {
+        // Cosmetic control: never throw into the transcript.
+      }
+    }
+
+    /** Test seam turns use seconds; the stats snapshot uses milliseconds. */
+    function normalizeSeamTurns(turns) {
+      if (!Array.isArray(turns)) return null
+      const list = []
+      for (const turn of turns) {
+        if (isNum(turn)) {
+          list.push({ wall: Math.max(0, turn) * 1000 })
+        } else if (turn && typeof turn === 'object') {
+          list.push({ ...turn, wall: isNum(turn.wall) ? Math.max(0, turn.wall) * 1000 : undefined })
+        } else {
+          list.push({})
+        }
+      }
+      return list
     }
 
     function usageTriggers() {
@@ -642,11 +907,60 @@ window.__ModuleLoader__.load({
         // No document to clean.
       }
       taskAnchor = null
+      renderedTaskText = null
+      renderedTaskAction = null
+    }
+
+    /**
+     * Reuse the annotation's children: a text span followed by the reset
+     * button. The button is created once per node and keeps its click handler
+     * across text updates.
+     */
+    function ensureTaskChildren(node) {
+      let text = null
+      let button = null
+      for (const child of node.children) {
+        if (child.classList && child.classList.contains(CLS.taskText)) text = child
+        else if (child.classList && child.classList.contains(CLS.taskReset)) button = child
+      }
+      if (text === null) {
+        text = document.createElement('span')
+        text.className = CLS.taskText
+        node.appendChild(text)
+      }
+      if (button === null) {
+        button = document.createElement('button')
+        button.type = 'button'
+        button.className = CLS.taskReset
+        button.addEventListener('click', onTaskToggleClick)
+        node.appendChild(button)
+      }
+      return { text, button }
+    }
+
+    /** Write the current text/mode into the node and remember what it shows. */
+    function applyTaskContent(node) {
+      const { text, button } = ensureTaskChildren(node)
+      if (text.textContent !== taskTimeText) text.textContent = taskTimeText
+      const dict = currentDict()
+      const restore = taskTimeAction === 'restore'
+      const label = restore ? dict['task.restore'] : dict['task.reset']
+      const title = restore ? dict['task.restoreTitle'] : dict['task.resetTitle']
+      if (button.textContent !== label) button.textContent = label
+      if (button.getAttribute('title') !== title) button.setAttribute('title', title)
+      if (button.getAttribute('data-dtt-action') !== taskTimeAction) {
+        button.setAttribute('data-dtt-action', taskTimeAction)
+      }
+      renderedTaskText = taskTimeText
+      renderedTaskAction = taskTimeAction
     }
 
     function syncTaskTime() {
       try {
         if (typeof document === 'undefined') return
+        // The annotation's own classes style the reset button; make sure the
+        // feature stylesheet exists even on a render path that only annotates.
+        ensureStyle()
         // Cheap path: the observer fires on every streamed token, and while the
         // annotation already sits directly after the newest row with unchanged
         // text nothing needs a document-wide scan. A newly attached footer
@@ -655,7 +969,7 @@ window.__ModuleLoader__.load({
         if (cached !== null && taskTimeText !== null
           && cached.node.isConnected && cached.row.isConnected
           && cached.node.previousElementSibling === cached.row
-          && cached.node.textContent === taskTimeText) {
+          && renderedTaskText === taskTimeText && renderedTaskAction === taskTimeAction) {
           return
         }
         if (taskTimeText === null) {
@@ -679,7 +993,7 @@ window.__ModuleLoader__.load({
           node = document.createElement('div')
           node.setAttribute(TASK_TIME_ATTR, '')
         }
-        if (node.textContent !== taskTimeText) node.textContent = taskTimeText
+        applyTaskContent(node)
         if (node.isConnected && node.previousElementSibling === row) {
           taskAnchor = { node, row }
           return
@@ -707,33 +1021,13 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Publish the summed turn wall time; reschedules only on a real change. */
+    /**
+     * Publish an explicit millisecond total. Kept as the `__DTT_TEST__`
+     * seam; the live path goes through publishSnapshotTurns() so the baseline
+     * rule sees the turns array.
+     */
     function setTaskTime(ms) {
-      let chinese = true
-      try {
-        chinese = /^zh/i.test(document.documentElement.lang || '')
-      } catch (error) {
-        chinese = true
-      }
-      const duration = formatTaskDuration(ms, chinese)
-      const template = currentDict()['task.total']
-      const next = duration === null ? null : fill(template, { duration })
-      if (next === lastTaskText) return
-      lastTaskText = next
-      taskTimeText = next
-      scheduleTaskSync()
-    }
-
-    /** Sum of every turn's wall time; null while nothing measurable exists. */
-    function totalTaskTime(snapshot) {
-      try {
-        const turns = snapshot && Array.isArray(snapshot.turns) ? snapshot.turns : []
-        let sum = 0
-        for (const turn of turns) if (isNum(turn && turn.wall)) sum += turn.wall
-        return sum > 0 ? sum : null
-      } catch (error) {
-        return null
-      }
+      publishTaskTotal(ms)
     }
 
     /** The newest turn, or null. */
@@ -899,7 +1193,7 @@ window.__ModuleLoader__.load({
       // Published even when the pill itself degrades: the footer line does not
       // depend on tps being measurable.
       try {
-        setTaskTime(totalTaskTime(snapshot))
+        publishSnapshotTurns(snapshot && Array.isArray(snapshot.turns) ? snapshot.turns : null)
       } catch (error) {
         // Optional annotation only.
       }
@@ -1028,9 +1322,18 @@ window.__ModuleLoader__.load({
         id: SLOT_ID,
         order: 2,
         locale: NS,
-        inject: (sessionId) => ({
-          hooks: { turnStats: createTurnStatsSource(ctx, sessionId) },
-        }),
+        inject: (sessionId) => {
+          // Remember which Session this dock belongs to so the reset point is
+          // stored under that Session's own key. No id means memory-only.
+          try {
+            captureSession(sessionId)
+          } catch (error) {
+            // Keep the pill working; the baseline just stays in memory.
+          }
+          return {
+            hooks: { turnStats: createTurnStatsSource(ctx, sessionId) },
+          }
+        },
       }, TurnTpsPill))
 
       // The footer row is re-rendered by chat on every message update, so the
@@ -1058,6 +1361,35 @@ window.__ModuleLoader__.load({
     if (typeof window !== 'undefined' && window.__DTT_TEST__ !== undefined) {
       window.__DTT_TEST__.setTaskTime = setTaskTime
       window.__DTT_TEST__.syncTaskTime = syncTaskTime
+      // Simulate one stats snapshot update: turns carry wall seconds here, so
+      // the page can write [60, 60, 60] instead of [60000, 60000, 60000].
+      window.__DTT_TEST__.setTurns = (turns) => {
+        try {
+          lastTurns = normalizeSeamTurns(turns)
+          publishTaskTotal(computeTaskTotal(lastTurns))
+          syncTaskTime()
+        } catch (error) {
+          // Seam only.
+        }
+      }
+      // Simulate the renderer handing a Session id to the slot injector.
+      window.__DTT_TEST__.setSession = (sessionId) => {
+        try {
+          captureSession(typeof sessionId === 'string' ? sessionId : null)
+          syncTaskTime()
+        } catch (error) {
+          // Seam only.
+        }
+      }
+      // Current reset point; wall is reported in seconds to match setTurns().
+      window.__DTT_TEST__.getBaseline = () => (
+        taskBaseline === null
+          ? null
+          : {
+            baseIndex: taskBaseline.baseIndex,
+            baseWall: Math.round(taskBaseline.baseWall) / 1000,
+          }
+      )
     }
 
     return { apply, inject: ['slots', 'uiConversation', 'locale'] }
