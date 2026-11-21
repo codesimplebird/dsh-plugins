@@ -113,6 +113,11 @@
     - `GET http://127.0.0.1:<GUI端口>/api/plan-mode/state` → `{tier, scope, phase, planning, …}`
     - `POST` 同地址 `{"tier":"off"}`（**必须带 `x-plan-mode-client: 1`**，否则 403）→ 关闭注入与验收
     - 持久化在 `~/.dsh/plan-mode-ui/state.json`；**2026-11-21 已设 `tier=off`**（此前被标 planning 后连续插话）
+    - **彻底关闭（已做，待重启生效）**：profile `cordis.patch.yml` 末尾加
+      `- id: plan-mode-ui` / `name: dsh-flash-presets` / `disabled: true`
+      （备份 `backups/desktop-cordis.patch.yml.before-disable-planmode-ui-20261121`）；
+      只禁用这个组件，`flash-presets-core` 两个预设照常可用；回滚就删掉这三行。
+    - 作者自身的用户开关：输入区计划面板 → 档位「关闭 / 轻量 / 全量」（off = 不规划、不注入）
 
 ## 自测方式
 
