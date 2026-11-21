@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-21 11:21（Driftglass 1.5.0 + dsh-mnemon 0.5.50 已安装，待重启启用；见优化记录第二十/二十一轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-21 11:57（Driftglass + mnemon 已随 11:39 重启加载；Mnemon CLI 已装，记忆空间待新会话/UI 创建；见优化记录第二十/二十一/二十二轮）。
 
 ## 这是什么
 
@@ -25,8 +25,8 @@
 | `dsh-turn-tps` | 0.3.2 | 已装 | 状态栏「本轮 tok/s」药丸 + 点击弹出用量面板 |
 | `dsh-subagent-running-count` | 0.3.4 | 已装 | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧排序、超 5 条折叠 |
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
-| `dsh-driftglass` | 1.5.0 | 已装（待重启载入） | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
-| `dsh-mnemon` | 0.5.50 | 已装（待重启载入） | 长期记忆（npm 源，侧面「Memory System」：召回/写回/文档/技能源） |
+| `dsh-driftglass` | 1.5.0 | 已加载 | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
+| `dsh-mnemon` | 0.5.50 | 已加载 | 长期记忆（npm 源，侧栏「Memory System」：召回/写回/文档/技能源）；Mnemon Native CLI 0.2.14 已装 |
 
 - profile 依赖：`file:C:/dev/dsh-optimize/plugins/<name>`（**绝对路径**，换机要改）
 - 配置解析：**1448 行、0 异常**（含 Driftglass + mnemon patch；源文件 `cordis.patch.yml` 636 行，
@@ -35,14 +35,14 @@
 
 ## 唯一未完成的事
 
-**需要用户重启一次 DSH**（2026-11-21 10:14 那次重启已加载 v0.3.3/v0.3.4）。本次装了**两个**还没进运行进程的插件：
+Driftglass 与 dsh-mnemon 已随 **2026-11-21 11:39** 的重启加载（侧栏应有「Memory System」；玻璃主题在
+设置→通用→外观 里开关）。**剩下的待办只有一件：创建并激活记忆空间**——
 
-- **Driftglass 1.5.0**：进 **设置 → 通用 → 外观**，打开「玻璃主题」总开关（默认关闭）
-- **dsh-mnemon 0.5.50**：重启后侧栏应出现「**Memory System**」；设置里确认记忆系统已启用，
-  按需配置 Memory Spaces（Mnemon Native provider 需另装全局 CLI，本次未装，不影响本体）
-- 顺手确认：胶囊按运行中数量显示（0 时只留图标）；花名册新→旧、有 `HH:MM`、超 5 条折叠
-- 若某个新插件没出现：先查对应开关/设置，再考虑 `dsh plugin remove` + 重启回滚（备份都在）
-- 若花名册排序仍不对，下一步从**会话日志**取时间（不再靠 React fiber）
+- 当前会话的 Mnemon View 是 11:42 固化的，那时 CLI 还没装，所以 `memory-spaces/manage-spaces` 不可用，
+  `mnemon_memory_body_create` 会报 `Source Action is not offered by the current View`
+- **做法**：开一个**新对话**后再让 agent 创建（View 会用「CLI 已就绪」重建），或直接在界面
+  「记忆系统 → 记忆空间」页新建并激活（Provider 选 Mnemon Native）
+- 建成后 `mnemon_status` 应显示 1 个 active/healthy 空间；数据落在 `C:\Users\14834\.mnemon`
 
 ## 这套东西的几个硬事实（别再重新发现一遍）
 
@@ -65,8 +65,12 @@
    升级＝重装同源＋重启。peer 警告 `missing @deepseek-ai/cordis` 是本 profile
    `autoInstallPeers=false` 的既有模式，不代表装坏。
 9. `dsh-mnemon` 走 **npm 源**（`dsh plugin add dsh-mnemon`），**自带 bundle patch，不要把它的 insert
-   复制进 profile 的 `cordis.patch.yml`**（重复 entry id 会让设置无法保存）。默认启用，
-   重启后侧栏出现「Memory System」；Mnemon Native provider 需 `npm i -g @mnemon-dev/mnemon`（未装）。
+   复制进 profile 的 `cordis.patch.yml`**（重复 entry id 会让设置无法保存）。默认启用，重启后侧栏出现
+   「Memory System」。Mnemon Native CLI 已全局安装（`npm i -g --include=optional @mnemon-dev/mnemon`，
+   v0.2.14，数据目录 `C:\Users\14834\.mnemon`），必须带 `--include=optional`，否则缺平台二进制。
+10. **Mnemon 的 View 在会话创建时固化**：后装的 CLI/Provider 不会让已有会话获得空间管理动作
+    （报 `Source Action is not offered by the current View: memory-spaces/manage-spaces`），
+    子会话还会继承父会话的 View。装完 CLI 后要**新开一个对话**（或重启 DSH）才能创建记忆空间。
 
 ## 自测方式
 
@@ -83,6 +87,6 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 953 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 983 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
