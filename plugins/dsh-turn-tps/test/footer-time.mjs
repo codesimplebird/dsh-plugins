@@ -272,9 +272,23 @@ ${bundle}
       && buttonStyle.borderLeftWidth === '0px'
       && buttonStyle.marginLeft === '8px'
       && buttonStyle.paddingLeft === '0px'
-      && buttonStyle.textDecorationLine.includes('underline')
-      && buttonStyle.textUnderlineOffset === '2px'
-      && Number.parseFloat(buttonStyle.opacity) === 0.85;
+      && buttonStyle.textDecorationLine === 'none'
+      && Number.parseFloat(buttonStyle.opacity) === 0.7;
+    // Themes restyle every <button>; the live look rides on inline !important.
+    results.resetButtonInlineImportant = !!initialButton
+      && initialButton.style.getPropertyPriority('background-color') === 'important'
+      && initialButton.style.getPropertyPriority('font-size') === 'important'
+      && initialButton.style.getPropertyPriority('border') === 'important'
+      && initialButton.style.getPropertyPriority('box-shadow') === 'important';
+    const textSpan = initialNode ? initialNode.querySelector('.dtt-task-text') : null;
+    results.resetButtonFontInherits = !!buttonStyle && !!textSpan
+      && getComputedStyle(textSpan).fontSize === buttonStyle.fontSize
+      && getComputedStyle(textSpan).lineHeight === buttonStyle.lineHeight;
+    initialButton.dispatchEvent(new MouseEvent('mouseenter'));
+    results.resetHoverOn = Number.parseFloat(getComputedStyle(initialButton).opacity) === 1
+      && getComputedStyle(initialButton).textDecorationLine.includes('underline');
+    initialButton.dispatchEvent(new MouseEvent('mouseleave'));
+    results.resetHoverOff = Number.parseFloat(getComputedStyle(initialButton).opacity) === 0.7;
 
     // Click "重置": the row must not also trigger copy/share handlers.
     const countBubbleClick = () => { bubbleClicks += 1; };

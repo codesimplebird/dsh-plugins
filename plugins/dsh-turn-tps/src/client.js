@@ -138,7 +138,10 @@ window.__ModuleLoader__.load({
   white-space: nowrap;
 }
 /* Reset/restore control: reads as a quiet inline link, not a second button in
-   the footer row. It lives inside the annotation, after the time text. */
+   the footer row. It lives inside the annotation, after the time text.
+   Themes (e.g. Driftglass) restyle every <button> with higher specificity than
+   this class, so the live styles are also written inline with !important by
+   styleTaskButton(); this rule is the no-JS baseline. */
 .${CLS.taskReset} {
   margin-left: 8px;
   padding: 0;
@@ -146,13 +149,14 @@ window.__ModuleLoader__.load({
   background: transparent;
   color: inherit;
   font: inherit;
-  opacity: 0.85;
+  opacity: 0.7;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 .${CLS.taskReset}:hover {
   opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .${CLS.panel} {
   position: fixed;
@@ -911,6 +915,59 @@ window.__ModuleLoader__.load({
       renderedTaskAction = null
     }
 
+    // Inline !important beats every author rule (themes restyle all buttons),
+    // so the control keeps the quiet-link look inside any theme.
+    const TASK_BUTTON_STYLES = {
+      'background': 'transparent',
+      'background-color': 'transparent',
+      'background-image': 'none',
+      'border': '0',
+      'border-radius': '0',
+      'box-shadow': 'none',
+      'padding': '0',
+      'margin': '0 0 0 8px',
+      'color': 'inherit',
+      'font': 'inherit',
+      'font-family': 'inherit',
+      'font-size': 'inherit',
+      'font-weight': 'inherit',
+      'line-height': 'inherit',
+      'height': 'auto',
+      'width': 'auto',
+      'min-width': '0',
+      'min-height': '0',
+      'display': 'inline',
+      'cursor': 'pointer',
+      'opacity': '0.7',
+      'text-decoration': 'none',
+      'white-space': 'nowrap',
+      'transform': 'none',
+      'backdrop-filter': 'none',
+      '-webkit-backdrop-filter': 'none',
+    }
+
+    /** Write the theme-proof base styles; cheap enough to repeat on every sync. */
+    function styleTaskButton(button) {
+      try {
+        for (const key of Object.keys(TASK_BUTTON_STYLES)) {
+          button.style.setProperty(key, TASK_BUTTON_STYLES[key], 'important')
+        }
+      } catch (error) {
+        // Styling is cosmetic; the click still works.
+      }
+    }
+
+    /** Hover emphasis without a stylesheet (inline keeps winning over themes). */
+    function hoverTaskButton(button, hovered) {
+      try {
+        button.style.setProperty('opacity', hovered ? '1' : '0.7', 'important')
+        button.style.setProperty('text-decoration', hovered ? 'underline' : 'none', 'important')
+        button.style.setProperty('text-underline-offset', hovered ? '2px' : '0px', 'important')
+      } catch (error) {
+        // Ignore.
+      }
+    }
+
     /**
      * Reuse the annotation's children: a text span followed by the reset
      * button. The button is created once per node and keeps its click handler
@@ -932,7 +989,10 @@ window.__ModuleLoader__.load({
         button = document.createElement('button')
         button.type = 'button'
         button.className = CLS.taskReset
+        styleTaskButton(button)
         button.addEventListener('click', onTaskToggleClick)
+        button.addEventListener('mouseenter', () => hoverTaskButton(button, true))
+        button.addEventListener('mouseleave', () => hoverTaskButton(button, false))
         node.appendChild(button)
       }
       return { text, button }
@@ -941,6 +1001,7 @@ window.__ModuleLoader__.load({
     /** Write the current text/mode into the node and remember what it shows. */
     function applyTaskContent(node) {
       const { text, button } = ensureTaskChildren(node)
+      styleTaskButton(button)
       if (text.textContent !== taskTimeText) text.textContent = taskTimeText
       const dict = currentDict()
       const restore = taskTimeAction === 'restore'
