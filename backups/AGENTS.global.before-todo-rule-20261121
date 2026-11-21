@@ -1,0 +1,26 @@
+# 用户全局规则(DSH 自动加载,所有会话生效)
+
+## 1. 禁止擅自重启 dsh 服务(永久生效)
+
+- agent **永远不能**自己重启、杀掉、或启动 dsh 服务(`dsh web` / `dsh` 桌面端进程)。
+- 需要重启才能生效的改动(装插件、改 cordis.patch.yml、改 preset、改 bundle 等),改完**告知用户**,由用户自己重启。
+- 可以做的:安装插件、改配置文件、验证文件状态、只读检查服务是否存活(Get-NetTCPConnection 等只读命令)。
+- 不可以做的:Stop-Process 杀 dsh 进程、后台启动 dsh 服务、任何会触发重载/重启的操作。
+
+## 2. 执行类任务必须委托子代理执行(永久生效)
+
+- 分工初衷:主会话负责**分析与规划**;子代理承担**执行**,把执行量压到更便宜的模型上。
+- **必须派 subagent / subagent_fork 去做的**:大段代码编写或批量修改、批量命令运行、批量文件搜索/读取、构建验证、多文件审计等"动手执行"类工作。
+- 主会话可以自己做的轻量动作:阅读单个小文件确认上下文、记录 todo、复核与整合子代理结果、发消息给子代理追加工作。
+- 派子代理时给出完整自包含的任务说明(它看不到本会话上下文),默认后台运行,一次可以并行派多个。
+
+## 3. 模型路由以实际配置为准(2026-10-20 修正)
+
+- **不要再假设主会话是 deepseek-v4-pro、子代理是 deepseek-v4-flash。** 这条旧描述与实际运行不符,已删除。
+- 真实的模型归属由 `~/.dsh/profiles/desktop/cordis.patch.yml` 里 `agent-default-model` 与 `preset-standard` 的 `agentOptions` 决定,改那里才生效,改本文档不会影响模型。
+- 需要确认当前实际路由时,查 `.dsh\storages\session_projcache\sessions\*.json` 的 `modelSelection.val.lastUsed`。
+
+## 4. 工作区与权限现实(2026-10-20 补)
+
+- 工作区 `C:\dev\qingjian` 的 Windows 权限缺少「写所有者」会导致命令沙箱无法启动(`grantWrite` 报 Win32 5)。已修复,备份在 `C:\dev\dsh-acl-recovery\`。
+- 本机外部网络被解析到内网地址(如 `registry.npmjs.org` → `198.18.0.132`),**HTTPS 不通、装不了 npm 插件**。`web_fetch` 对外网站不可用。需要资料时优先读本地 `app.asar` 与已装包。
