@@ -106,6 +106,13 @@
 14. **radar 增量**：`node tools/radar-refresh.mjs` 拉 dsh-plugin-radar 数据，筛 `verdict=ok`、★≥100、
     DSH 相关、不在旧清单的优化类项目 → `docs/DSH雷达增量-最新.md`；失败不覆盖旧文件。
     计划任务 `DSH-Radar-Refresh`（每周一 09:30）已注册，可 `schtasks /query /tn DSH-Radar-Refresh` 查。
+15. **flash-presets 的计划组件会注入"合成用户消息"**（`dsh-plan-mode-ui`，host 半在 `dsh-flash-presets/lib/index.js`）：
+    会发 `PHASE 1 / PHASE 2 / PLAN NOT FOUND / PLAN FIRST …` 开头的 steer 消息，DSH 渲染成**用户气泡**，
+    看起来像用户发的（实际不是）。它把会话标成 `phase=planning` 后，一检测到文件写入就拦门插
+    `PLAN NOT FOUND`。状态/开关：
+    - `GET http://127.0.0.1:<GUI端口>/api/plan-mode/state` → `{tier, scope, phase, planning, …}`
+    - `POST` 同地址 `{"tier":"off"}`（**必须带 `x-plan-mode-client: 1`**，否则 403）→ 关闭注入与验收
+    - 持久化在 `~/.dsh/plan-mode-ui/state.json`；**2026-11-21 已设 `tier=off`**（此前被标 planning 后连续插话）
 
 ## 自测方式
 
