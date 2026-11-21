@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
       taskTime: 'dtt-task-time',
       taskText: 'dtt-task-text',
       taskReset: 'dtt-task-reset',
+      taskModel: 'dtt-task-model',
     }
 
     // Feature stylesheet. Colours come from semantic aliases only; the panel
@@ -286,6 +287,7 @@ window.__ModuleLoader__.load({
       'task.restore': '恢复',
       'task.resetTitle': '从当前这一轮开始累计',
       'task.restoreTitle': '恢复为整个会话累计',
+      'task.model': '模型',
     }
     const en = {
       'pill.label': 'turn {tps} tok/s',
@@ -312,6 +314,7 @@ window.__ModuleLoader__.load({
       'task.restore': 'Restore',
       'task.resetTitle': 'Count from the current turn',
       'task.restoreTitle': 'Count the whole session again',
+      'task.model': 'Model',
     }
 
     function fill(template, params) {
@@ -780,6 +783,133 @@ window.__ModuleLoader__.load({
       }
     }
 
+    // ---- per-turn model label ---------------------------------------------
+    //
+    // Every assistant Turn footer ("… 用量 9.4M tok · 22:12") belongs to that
+    // Turn only, and a Session can switch models between TurnS. The model of
+    // the Turn is not a DOM attribute: the official TurnTailNodeView holds
+    // `node.data.tokenUsage.routes` in React props, and TurnUsagePanel receives
+    // the same usage object. React internals are the only place the per-Turn
+    // identity is reachable from the client, so the label walks up from the
+    // row to the nearest fiber carrying `routes` (same technique as the
+    // subagent-roster plugin). A failure only hides the label.
+    const TURN_MODEL_ATTR = 'data-dtt-turn-model'
+    let turnModelSyncedAt = 0
+
+    function fiberOf(element) {
+      try {
+        const key = Object.keys(element).find((name) => name.startsWith('__reactFiber$'))
+        return key === undefined ? null : element[key]
+      } catch (error) {
+        return null
+      }
+    }
+
+    /** routes from a fiber's props: TurnUsagePanel.usage or TurnTailNodeView.node. */
+    function routesFromProps(props) {
+      if (props === null || typeof props !== 'object') return null
+      const usage = props.usage
+      if (usage !== null && typeof usage === 'object' && Array.isArray(usage.routes) && usage.routes.length > 0) {
+        return usage.routes
+      }
+      const node = props.node
+      const data = node !== null && typeof node === 'object' ? node.data : null
+      const tokenUsage = data !== null && typeof data === 'object' ? data.tokenUsage : null
+      if (tokenUsage !== null && typeof tokenUsage === 'object'
+        && Array.isArray(tokenUsage.routes) && tokenUsage.routes.length > 0) {
+        return tokenUsage.routes
+      }
+      return null
+    }
+
+    /** Walk up from the footer row to the nearest component carrying that Turn's routes. */
+    function turnRoutesOf(element) {
+      let fiber = fiberOf(element)
+      for (let depth = 0; fiber !== null && depth < 60; depth += 1) {
+        try {
+          const routes = routesFromProps(fiber.memoizedProps)
+          if (routes !== null) return routes
+        } catch (error) {
+          // Keep walking.
+        }
+        fiber = fiber.return
+      }
+      return null
+    }
+
+    /** `provider/model` list, de-duplicated, in request order. */
+    function formatTurnRoutes(routes) {
+      if (!Array.isArray(routes)) return null
+      const seen = new Set()
+      const parts = []
+      for (const route of routes) {
+        if (route === null || typeof route !== 'object') continue
+        if (typeof route.provider !== 'string' || route.provider === '') continue
+        if (typeof route.model !== 'string' || route.model === '') continue
+        const id = `${route.provider}/${route.model}`
+        if (seen.has(id)) continue
+        seen.add(id)
+        parts.push(id)
+      }
+      return parts.length === 0 ? null : parts.join(', ')
+    }
+
+    function removeTurnModelLabels(row) {
+      try {
+        for (const label of row.querySelectorAll('[' + TURN_MODEL_ATTR + ']')) label.remove()
+      } catch (error) {
+        // Detached row.
+      }
+    }
+
+    /**
+     * Stamp every assistant Turn footer with its own model, inline after the
+     * clock so it shares the row's hover reveal. Cheap by construction: rows
+     * whose label already matches are skipped, and the whole pass is throttled
+     * because it is triggered by the same mutation stream as the task line.
+     */
+    function syncTurnModels(force) {
+      try {
+        if (typeof document === 'undefined') return
+        const now = Date.now()
+        if (force !== true && now - turnModelSyncedAt < 800) return
+        turnModelSyncedAt = now
+        ensureStyle()
+        for (const row of document.querySelectorAll('[data-clock="end"]')) {
+          let text = null
+          try {
+            text = formatTurnRoutes(turnRoutesOf(row))
+          } catch (error) {
+            text = null
+          }
+          const clock = clockElementOf(row)
+          if (text === null || clock === null || clock.parentElement === null) {
+            removeTurnModelLabels(row)
+            continue
+          }
+          let label = row.querySelector('[' + TURN_MODEL_ATTR + ']')
+          if (label !== null && label.getAttribute(TURN_MODEL_ATTR) === text) continue
+          removeTurnModelLabels(row)
+          label = document.createElement('span')
+          label.setAttribute(TURN_MODEL_ATTR, text)
+          label.className = CLS.taskModel
+          const style = label.style
+          style.display = 'inline-block'
+          style.marginLeft = '4px'
+          style.fontSize = 'inherit'
+          style.lineHeight = 'inherit'
+          style.color = 'var(--dsw-alias-label-tertiary)'
+          style.whiteSpace = 'nowrap'
+          style.fontVariantNumeric = 'tabular-nums'
+          label.textContent = text
+          label.title = `${currentDict()['task.model']}: ${text}`
+          clock.parentElement.insertBefore(label, clock.nextSibling)
+        }
+      } catch (error) {
+        // Cosmetic: never surface a failure.
+      }
+    }
+
     /**
      * Copy the clock's computed typography onto the annotation inline. Classes
      * alone are not enough: the annotation is a sibling of the icon row, not a
@@ -1074,6 +1204,7 @@ window.__ModuleLoader__.load({
       const run = () => {
         taskSyncScheduled = false
         syncTaskTime()
+        syncTurnModels(false)
       }
       try {
         requestAnimationFrame(run)
@@ -1412,9 +1543,11 @@ window.__ModuleLoader__.load({
           observer.disconnect()
           taskAnchor = null
           for (const node of document.querySelectorAll('[' + TASK_TIME_ATTR + ']')) node.remove()
+          for (const label of document.querySelectorAll('[' + TURN_MODEL_ATTR + ']')) label.remove()
         }, 'turn-tps: footer observer')
       }
       scheduleTaskSync()
+      syncTurnModels(true)
     }
 
     // Test seam: headless pages set window.__DTT_TEST__ to drive the footer
@@ -1422,6 +1555,8 @@ window.__ModuleLoader__.load({
     if (typeof window !== 'undefined' && window.__DTT_TEST__ !== undefined) {
       window.__DTT_TEST__.setTaskTime = setTaskTime
       window.__DTT_TEST__.syncTaskTime = syncTaskTime
+      window.__DTT_TEST__.syncTurnModels = syncTurnModels
+      window.__DTT_TEST__.formatTurnRoutes = formatTurnRoutes
       // Simulate one stats snapshot update: turns carry wall seconds here, so
       // the page can write [60, 60, 60] instead of [60000, 60000, 60000].
       window.__DTT_TEST__.setTurns = (turns) => {

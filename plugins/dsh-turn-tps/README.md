@@ -71,6 +71,25 @@
   观察器带「当前节点 + 行」缓存：位置和文本都没变时直接返回，不做全文档扫描。
 - 设置里没有任何开关，卸载插件即恢复原样。
 
+## 每轮模型标签（v0.4.4）
+
+会话可以在**每一轮**切换模型，所以模型是 Turn 级信息。每一条助手消息的页脚操作行里、时间后面
+会多一个小字标签：
+
+```
+… 复制 / 分支 / 用量 9.4M tok · 22:12  opencode-go/deepseek-v4.1-flash
+```
+
+- 数据来源：官方 `TurnTailNodeView` / `TurnUsagePanel` 的 React props
+  （`node.data.tokenUsage.routes` / `usage.routes`，形如 `[{provider, model}]`）。
+  DOM 上没有模型字段，这是客户端唯一能拿到的按轮来源；实现方式是从页脚行沿 React fiber 向上找
+  最近一个带 `routes` 的组件（与花名册插件读 `createdAt` 的技术相同）。
+- 一轮里发生多模型重试时按请求顺序列出并去重，例如 `deepseek-account/deepseek-flash, opencode-go/deepseek-v4.1-flash`。
+- 标签插在时间元素之后、同一操作行里：旧消息的操作行本来就在 hover 时才显示，标签跟着一起出现；
+  最新一条始终可见。
+- 拿不到 routes（历史不完整、React 结构变化）时只是**不显示标签**，不影响任务总用时/重置按钮。
+- 每次 DOM 变化会触发同步，但同一行的标签文本没变就跳过，且整趟扫描节流 800ms。
+
 ## 数据来源
 
 ```js
