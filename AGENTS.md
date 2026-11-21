@@ -11,6 +11,9 @@
 
 ## 工作方式
 
+- **命令/文件工具现由 dsh-ops 提供**：`ops_bash`（bash，不是 pwsh）、`ops_glob` / `ops_grep` /
+  `ops_inspect_local_file`；路径写 `/c/...` 或 `C:/...`。要恢复 pwsh：插件页关掉 dsh-ops 的隐藏项并重启，
+  或 `dsh plugin remove dsh-ops`。
 - 改 UI 前先读 `HANDOFF.md` 的「硬事实」，别重新猜 DOM 结构。
 - 一次只改一个特性，改完立刻自测（`test/` 下的脚本），绿了再动下一个。
 - 测试页面必须**镜像真实编译产物结构**，不是自己想象的简化结构——本项目已经因此翻车三次。

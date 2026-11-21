@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-21 19:48（turn-tps v0.4.3 修「重置」被主题按钮样式覆盖；见优化记录第二十四～二十七轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-21 21:10（装 flash-presets / block-ptc / dsh-ops + radar 自动增量；见优化记录第二十八轮）。
 
 ## 这是什么
 
@@ -27,33 +27,36 @@
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
 | `dsh-driftglass` | 1.5.0 | 已加载 | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
 | `dsh-mnemon` | 0.5.50 | 已加载 | 长期记忆（npm 源，侧栏「Memory System」）；Mnemon Native CLI 0.2.14；记忆空间「工作记忆」(`default`) 已激活 |
+| `dsh-flash-presets` | 0.3.2 | 已装（**待重启**选预设） | 「精简·PTC v3」/ balance 预设 + plan-mode；对整个 profile 覆盖 `ptc-runtime`（0.3.3 是误发版，勿装） |
+| `dsh-block-ptc` | 0.5.0 | 已装（**待重启**） | Block PTC 预设/工具：AI 自主决定何时压缩上下文（需新会话选该预设） |
+| `dsh-ops` | 0.5.5 | 已加载（默认隐藏 pwsh/官方工具） | ops 工具族 + 随包 bash 运行时；**当前会话工具面已从 `pwsh` 换成 `ops_bash`/`ops_*`** |
 
-- profile 依赖：`file:C:/dev/dsh-optimize/plugins/<name>`（**绝对路径**，换机要改）
-- 配置解析：**1448 行、0 异常**（含 Driftglass + mnemon patch；源文件 `cordis.patch.yml` 636 行，
-  1448 指 `--dump-config` 输出行数；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
+- profile 现在 **12 个 bundle、10 个依赖**
+- 配置解析：**2187 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops；
+  唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
 - git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
 ## 唯一未完成的事
 
-**让客户端重新加载即可**：`dsh-turn-tps` **v0.4.3**（重置基准 + 修主题覆盖按钮样式）已于 19:48
-装进 profile。**刷新 DSH 页面**（Ctrl+R / 关掉窗口重开）——客户端插件刷新即重新拉 bundle（实测无需重启整个 DSH）。
+**需要用户重启一次 DSH**（host 侧插件/preset 生效）：本次装了 `dsh-flash-presets`、`dsh-block-ptc`、
+`dsh-ops`。重启后：
 
-刷新后验证：
-
-- 「任务总用时」在操作行**下一行**、小号灰字、间距约 4px（v0.4.1 已修）
-- 行内「**重置**」应是**小号灰字链接**（默认无下划线、悬停变亮+下划线）——v0.4.3 用内联 `!important`
-  兜底，玻璃主题不能再把它覆盖成灰块
-- 点「**重置**」→ `0 秒 · 自本轮起`、按钮变「**恢复**」；等一轮结束看数字增长；刷新页面基准应保留
-- 「恢复」回到整个会话累计
+- **设置 → 预设** 切到「精简·PTC v3」（或「balance」）——省 token 的主力；
+- 想试 Block PTC：**新会话**里选该预设（压缩行为按它自己的规则走）；
+- **命令工具已变成 `ops_bash`**（dsh-ops 默认 `hidePwsh/hideOfficialTools: true`，本会话已生效）。
+  不想让 pwsh 消失：插件页 → dsh-ops → 关掉隐藏项 → 再重启；或直接 `dsh plugin remove dsh-ops`；
+- radar 增量：`docs/DSH雷达增量-最新.md`；手动刷新 `node tools/radar-refresh.mjs`，
+  Windows 计划任务 `DSH-Radar-Refresh` 每周一 09:30 自动跑（试跑 lastResult=0）；
+- 客户端插件 turn-tps v0.4.3 仍需**刷新页面**确认「重置」小灰字链接（见上方观察项）。
 
 其余状态：Driftglass、dsh-mnemon、Mnemon Native CLI 均已在跑；记忆空间「工作记忆」
 （id `default`，provider `mnemon-native`）已创建并 **active**。
 
 观察项（有问题再处理）：
 
-- 间距偏紧/偏松只调 client.js 的 `TASK_TIME_GAP`
-- 下一轮起 `mnemon_recall` 应可用；试一次召回看质量
-- 每轮上下文开销（用 turn-tps 药丸看）；玻璃主题观感：设置 → 通用 → 外观
+- 三个新插件的净效果：用 turn-tps 药丸对比同任务 token/轮数；flash 预设 vs 官方 PTC 预设各跑一次
+- 「重置」小灰字链接是否正常（v0.4.3）；间距偏紧/偏松只调 `TASK_TIME_GAP`
+- 下一轮起 `mnemon_recall` 应可用；试一次召回看质量；玻璃主题观感：设置 → 通用 → 外观
 
 ## 这套东西的几个硬事实（别再重新发现一遍）
 
@@ -87,6 +90,16 @@
 11. **客户端插件更新不一定需要重启整个 DSH**：刷新页面会重新拉取 profile 里的 client bundle
     （2026-11-21 实测：turn-tps v0.4.0 在 11:39 启动的进程下、14:54 安装完直接可见）。但 host 侧插件
     （如 mnemon）、`cordis.patch.yml`/bundle/preset 改动仍然必须重启 DSH。
+12. **dsh-ops 默认 `hidePwsh: true` / `hideOfficialTools: true`**：装上后 agent 的工具面会从
+    `pwsh`/`read`/`grep` 换成 `ops_bash`/`ops_*`（bash = 随包 niubash），**本仓库的命令示例要按 bash 写**
+    （路径 `/c/...` 或 `C:/...`；调 PowerShell 用 `powershell.exe -File`）。不想这样：插件页关掉隐藏项
+    重启，或 `dsh plugin remove dsh-ops`。
+13. **flash-presets 只装 0.3.2**（0.3.3 是作者误发、npm 上已 deprecate；锁版本装）。
+    它插入的 `ptc-runtime` 覆盖对**整个 profile 的所有预设**生效；glob/grep 并发标记可用
+    `DSH_FLASH_PRESETS_CONCURRENCY=0` 关，旧 preset id 别名可用 `DSH_FLASH_PRESETS_ALIAS=0` 关。
+14. **radar 增量**：`node tools/radar-refresh.mjs` 拉 dsh-plugin-radar 数据，筛 `verdict=ok`、★≥100、
+    DSH 相关、不在旧清单的优化类项目 → `docs/DSH雷达增量-最新.md`；失败不覆盖旧文件。
+    计划任务 `DSH-Radar-Refresh`（每周一 09:30）已注册，可 `schtasks /query /tn DSH-Radar-Refresh` 查。
 
 ## 自测方式
 
@@ -103,6 +116,7 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 1147 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1178 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
+- `docs/DSH雷达增量-最新.md` —— radar 自动增量（每周一更新），由 `tools/radar-refresh.mjs` 生成
