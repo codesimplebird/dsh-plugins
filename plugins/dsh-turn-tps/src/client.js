@@ -63,6 +63,7 @@ window.__ModuleLoader__.load({
       rule: 'dtt-rule',
       grid: 'dtt-grid',
       foot: 'dtt-foot',
+      taskTime: 'dtt-task-time',
     }
 
     // Feature stylesheet. Colours come from semantic aliases only; the panel
@@ -118,6 +119,15 @@ window.__ModuleLoader__.load({
 .${CLS.sub} {
   color: var(--dsw-alias-label-tertiary);
   font-weight: 400;
+}
+.${CLS.taskTime} {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .${CLS.panel} {
   position: fixed;
@@ -241,6 +251,7 @@ window.__ModuleLoader__.load({
       'state.aborted': '已中止',
       'state.done': '已完成',
       'empty': '暂无可测量的数据',
+      'task.total': '任务总用时 {duration}',
     }
     const en = {
       'pill.label': 'turn {tps} tok/s',
@@ -261,6 +272,7 @@ window.__ModuleLoader__.load({
       'state.aborted': 'Aborted',
       'state.done': 'Done',
       'empty': 'No measurable data yet',
+      'task.total': 'Total task time {duration}',
     }
 
     function fill(template, params) {
@@ -318,6 +330,145 @@ window.__ModuleLoader__.load({
     function formatPercent(value) {
       if (!isNum(value)) return null
       return (value * 100).toFixed(value >= 0.995 ? 0 : 1) + '%'
+    }
+
+    /** Two units at most, so the line stays one row tall. */
+    function formatTaskDuration(ms, chinese) {
+      if (!isNum(ms) || ms < 0) return null
+      const totalSeconds = Math.round(ms / 1000)
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+      if (chinese) {
+        if (hours > 0) return hours + ' 小时 ' + minutes + ' 分'
+        if (minutes > 0) return minutes + ' 分 ' + seconds + ' 秒'
+        return seconds + ' 秒'
+      }
+      if (hours > 0) return hours + 'h ' + minutes + 'm'
+      if (minutes > 0) return minutes + 'm ' + seconds + 's'
+      return seconds + 's'
+    }
+
+    // ---- task total under the newest message footer ------------------------
+    //
+    // The footer row ("用量 … tok · 11月20日 23:24") belongs to
+    // @deepseek-ai/dsh-client-ui-chat: it carries per-turn usage but no wall
+    // clock. The stats view this plugin already consumes knows each turn's
+    // `wall`, so their sum is published here and mirrored under the newest
+    // footer. Anchoring stays textual because component class names are hashed
+    // per build.
+    const TASK_TIME_ATTR = 'data-dtt-task-time'
+    let taskTimeText = null
+    let taskSyncScheduled = false
+    let lastTaskText = null
+
+    function currentDict() {
+      try {
+        return /^zh/i.test(document.documentElement.lang || '') ? zh : en
+      } catch (error) {
+        return zh
+      }
+    }
+
+    function usageTriggers() {
+      const found = []
+      try {
+        for (const button of document.querySelectorAll('button[aria-haspopup="dialog"]')) {
+          const text = (button.textContent || '').trim()
+          if (/^(用量|Usage)\s/u.test(text)) found.push(button)
+        }
+      } catch (error) {
+        // No document to annotate.
+      }
+      return found
+    }
+
+    /** The flex row that also holds the message clock; returned as the row. */
+    function footerRowOf(trigger) {
+      let node = trigger
+      for (let depth = 0; depth < 4 && node !== null; depth += 1) {
+        const parent = node.parentElement
+        if (parent === null) break
+        const hasClock = Array.from(parent.children).some((child) => {
+          if (child === node) return false
+          const text = (child.textContent || '').trim()
+          return text !== '' && /(\d{1,2}:\d{2})|(\d{1,2}月\d{1,2}日)|(\d{1,2}\/\d{1,2})/u.test(text)
+        })
+        if (hasClock) return parent
+        node = parent
+      }
+      return trigger.parentElement
+    }
+
+    function syncTaskTime() {
+      try {
+        if (typeof document === 'undefined') return
+        const existing = Array.from(document.querySelectorAll('[' + TASK_TIME_ATTR + ']'))
+        const triggers = usageTriggers()
+        if (taskTimeText === null || triggers.length === 0) {
+          for (const node of existing) node.remove()
+          return
+        }
+        const row = footerRowOf(triggers[triggers.length - 1])
+        if (row === null || row.parentElement === null) {
+          for (const node of existing) node.remove()
+          return
+        }
+        let node = existing[existing.length - 1] ?? null
+        for (const stale of existing) if (stale !== node) stale.remove()
+        if (node === null) {
+          node = document.createElement('div')
+          node.setAttribute(TASK_TIME_ATTR, '')
+          node.className = CLS.taskTime
+        }
+        if (node.textContent !== taskTimeText) node.textContent = taskTimeText
+        if (row.nextElementSibling !== node) row.parentElement.insertBefore(node, row.nextSibling)
+      } catch (error) {
+        // Annotation is cosmetic; never surface a failure.
+      }
+    }
+
+    function scheduleTaskSync() {
+      if (taskSyncScheduled) return
+      taskSyncScheduled = true
+      const run = () => {
+        taskSyncScheduled = false
+        syncTaskTime()
+      }
+      try {
+        requestAnimationFrame(run)
+      } catch (error) {
+        setTimeout(run, 16)
+      }
+    }
+
+    /** Publish the summed turn wall time; reschedules only on a real change. */
+    function setTaskTime(ms) {
+      let chinese = true
+      try {
+        chinese = /^zh/i.test(document.documentElement.lang || '')
+      } catch (error) {
+        chinese = true
+      }
+      const duration = formatTaskDuration(ms, chinese)
+      const template = currentDict()['task.total']
+      const next = duration === null ? null : fill(template, { duration })
+      if (next === lastTaskText) return
+      lastTaskText = next
+      taskTimeText = next
+      scheduleTaskSync()
+    }
+
+    /** Sum of every turn's wall time; null while nothing measurable exists. */
+    function totalTaskTime(snapshot) {
+      try {
+        const turns = snapshot && Array.isArray(snapshot.turns) ? snapshot.turns : []
+        let sum = 0
+        for (const turn of turns) if (isNum(turn && turn.wall)) sum += turn.wall
+        return sum > 0 ? sum : null
+      } catch (error) {
+        return null
+      }
     }
 
     /** The newest turn, or null. */
@@ -480,6 +631,13 @@ window.__ModuleLoader__.load({
       } catch (error) {
         tps = null
       }
+      // Published even when the pill itself degrades: the footer line does not
+      // depend on tps being measurable.
+      try {
+        setTaskTime(totalTaskTime(snapshot))
+      } catch (error) {
+        // Optional annotation only.
+      }
       if (tps === null) return null
 
       const pillChildren = [
@@ -609,6 +767,25 @@ window.__ModuleLoader__.load({
           hooks: { turnStats: createTurnStatsSource(ctx, sessionId) },
         }),
       }, TurnTpsPill))
+
+      // The footer row is re-rendered by chat on every message update, so the
+      // annotation is re-applied whenever the document changes underneath it.
+      if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver(() => scheduleTaskSync())
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+        ctx.effect(() => () => {
+          observer.disconnect()
+          for (const node of document.querySelectorAll('[' + TASK_TIME_ATTR + ']')) node.remove()
+        }, 'turn-tps: footer observer')
+      }
+      scheduleTaskSync()
+    }
+
+    // Test seam: headless pages set window.__DTT_TEST__ to drive the footer
+    // annotation without a full React render.
+    if (typeof window !== 'undefined' && window.__DTT_TEST__ !== undefined) {
+      window.__DTT_TEST__.setTaskTime = setTaskTime
+      window.__DTT_TEST__.syncTaskTime = syncTaskTime
     }
 
     return { apply, inject: ['slots', 'uiConversation', 'locale'] }

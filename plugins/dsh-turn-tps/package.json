@@ -1,8 +1,8 @@
 {
   "name": "dsh-turn-tps",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
-  "description": "Adds a per-turn tok/s pill to the DSH composer dock, next to the built-in session-cumulative activity pill.",
+  "description": "Per-turn tok/s pill + usage panel, and a total task time line under the newest message footer.",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -16,7 +16,8 @@
   },
   "files": [
     "src",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "test"
   ],
   "dsh": {
     "bundle": {
