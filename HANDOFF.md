@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-20 23:36（切区核验已通过，见优化记录第十八轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-21 10:30（Driftglass 1.5.0 已安装，待重启启用；见优化记录第二十轮）。
 
 ## 这是什么
 
@@ -25,23 +25,21 @@
 | `dsh-turn-tps` | 0.3.2 | 已装 | 状态栏「本轮 tok/s」药丸 + 点击弹出用量面板 |
 | `dsh-subagent-running-count` | 0.3.4 | 已装 | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧排序、超 5 条折叠 |
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
+| `dsh-driftglass` | 1.5.0 | 已装（待重启载入） | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
 
 - profile 依赖：`file:C:/dev/dsh-optimize/plugins/<name>`（**绝对路径**，换机要改）
-- 配置解析：**1372 行、0 异常**（用临时 profile 校验的；源文件 `cordis.patch.yml` 是 636 行，
-  1372 指 `--dump-config` 的输出行数）
-- git：干净，切区基线 `aa08ec7`（3 次提交、37 文件）；核验记录见最新提交
+- 配置解析：**1375 行、0 异常**（含 Driftglass patch；源文件 `cordis.patch.yml` 636 行，
+  1375 指 `--dump-config` 输出行数；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
+- git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
 ## 唯一未完成的事
 
-**需要用户重启一次 DSH。** `subagent-running-count` v0.3.3 修复了「排序/折叠不生效」的 bug，
-v0.3.4 又把折叠阈值从 8 条收紧到 5 条，两者在同一次重启生效；都只在浏览器里验证过，
-真实界面还没看过。重启后应该：
+**需要用户重启一次 DSH**（2026-11-21 10:14 那次重启已加载 v0.3.3/v0.3.4）。本次新装的
+**Driftglass 1.5.0** 还没进运行进程，重启后：
 
-- 胶囊：`N 个子智能体运行中`；没有运行中就只留图标（不显示 0）
-- 点开面板：新的在最上、右侧有 `HH:MM` 时间、底部「显示其余 N 条」
-- 第 3 点：超过 5 条时只显示最新 5 条，按钮「显示其余 N 条」（N = 总数 − 5）
-
-如果重启后不对，下一步是从会话日志取时间（不再靠 React fiber），而不是继续猜 DOM。
+- 进 **设置 → 通用 → 外观**，打开「玻璃主题」总开关（默认关闭）
+- 顺手确认：胶囊按运行中数量显示（0 时只留图标）；花名册新→旧、有 `HH:MM`、超 5 条折叠
+- 若花名册排序仍不对，下一步从**会话日志**取时间（不再靠 React fiber）
 
 ## 这套东西的几个硬事实（别再重新发现一遍）
 
@@ -60,6 +58,9 @@ v0.3.4 又把折叠阈值从 8 条收紧到 5 条，两者在同一次重启生�
    `grantWrite` 报 Win32 5，pwsh/git 起不来（与旧 `C:\dev\qingjian` 同名问题）。
    本仓库核验是在 **danger-full-access** 下完成的；切回 workspace-write 前先跑
    `diagnose-windows-sandbox-acl` 补权限（备份 `C:\dev\dsh-acl-recovery`）。
+8. 第三方主题用 **`github:` 源**安装（没有 npm 包）：`dsh plugin add github:user/repo#main`，
+   升级＝重装同源＋重启。peer 警告 `missing @deepseek-ai/cordis` 是本 profile
+   `autoInstallPeers=false` 的既有模式，不代表装坏。
 
 ## 自测方式
 
@@ -76,6 +77,6 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 825 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 923 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
