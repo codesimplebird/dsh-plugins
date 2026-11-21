@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-21 11:57（Driftglass + mnemon 已随 11:39 重启加载；Mnemon CLI 已装，记忆空间待新会话/UI 创建；见优化记录第二十/二十一/二十二轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-21 12:02（记忆空间「工作记忆」已创建并激活；见优化记录第二十三轮）。
 
 ## 这是什么
 
@@ -26,7 +26,7 @@
 | `dsh-subagent-running-count` | 0.3.4 | 已装 | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧排序、超 5 条折叠 |
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
 | `dsh-driftglass` | 1.5.0 | 已加载 | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
-| `dsh-mnemon` | 0.5.50 | 已加载 | 长期记忆（npm 源，侧栏「Memory System」：召回/写回/文档/技能源）；Mnemon Native CLI 0.2.14 已装 |
+| `dsh-mnemon` | 0.5.50 | 已加载 | 长期记忆（npm 源，侧栏「Memory System」）；Mnemon Native CLI 0.2.14；记忆空间「工作记忆」(`default`) 已激活 |
 
 - profile 依赖：`file:C:/dev/dsh-optimize/plugins/<name>`（**绝对路径**，换机要改）
 - 配置解析：**1448 行、0 异常**（含 Driftglass + mnemon patch；源文件 `cordis.patch.yml` 636 行，
@@ -35,14 +35,14 @@
 
 ## 唯一未完成的事
 
-Driftglass 与 dsh-mnemon 已随 **2026-11-21 11:39** 的重启加载（侧栏应有「Memory System」；玻璃主题在
-设置→通用→外观 里开关）。**剩下的待办只有一件：创建并激活记忆空间**——
+**没有阻塞待办了。** Driftglass、dsh-mnemon、Mnemon Native CLI 均已在跑；记忆空间「工作记忆」
+（id `default`，provider `mnemon-native`）已创建并 **active**（`mnemon_status`：1/1/1 healthy，库约 94 KB）。
 
-- 当前会话的 Mnemon View 是 11:42 固化的，那时 CLI 还没装，所以 `memory-spaces/manage-spaces` 不可用，
-  `mnemon_memory_body_create` 会报 `Source Action is not offered by the current View`
-- **做法**：开一个**新对话**后再让 agent 创建（View 会用「CLI 已就绪」重建），或直接在界面
-  「记忆系统 → 记忆空间」页新建并激活（Provider 选 Mnemon Native）
-- 建成后 `mnemon_status` 应显示 1 个 active/healthy 空间；数据落在 `C:\Users\14834\.mnemon`
+观察项（有问题再处理）：
+
+- 下一轮起 `mnemon_recall` 才应可用（动作/路由按轮快照）；试一次召回看质量
+- 每轮上下文开销（用 turn-tps 药丸看）；若明显变慢，在 Memory System 里调召回预算/模式
+- 玻璃主题观感：设置 → 通用 → 外观
 
 ## 这套东西的几个硬事实（别再重新发现一遍）
 
@@ -71,6 +71,8 @@ Driftglass 与 dsh-mnemon 已随 **2026-11-21 11:39** 的重启加载（侧栏�
 10. **Mnemon 的 View 在会话创建时固化**：后装的 CLI/Provider 不会让已有会话获得空间管理动作
     （报 `Source Action is not offered by the current View: memory-spaces/manage-spaces`），
     子会话还会继承父会话的 View。装完 CLI 后要**新开一个对话**（或重启 DSH）才能创建记忆空间。
+    判据：每轮上下文里的 `MNEMON VIEW TOOLS (...)` 行列出了当前 View 可用的动作/路由；同轮内新建的
+    空间当轮 `recall` 仍不可用，**下一轮**恢复（2026-11-21 12:00 据此建成 space id `default`）。
 
 ## 自测方式
 
@@ -87,6 +89,6 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 983 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1005 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
