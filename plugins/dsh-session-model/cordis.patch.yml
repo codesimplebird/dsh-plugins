@@ -1,0 +1,5 @@
+# dsh-session-model bundle layer: inserts the session-header model badge row.
+# Stable row id so profile patches can target it.
+- insert:
+    - id: session-model-badge
+      name: 'dsh-session-model'

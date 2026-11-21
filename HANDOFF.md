@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-21 21:10（装 flash-presets / block-ptc / dsh-ops + radar 自动增量；见优化记录第二十八轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-21 22:10（新增 dsh-session-model：会话头部模型徽章；见优化记录第二十九轮）。
 
 ## 这是什么
 
@@ -30,9 +30,10 @@
 | `dsh-flash-presets` | 0.3.2 | 已装（**待重启**选预设） | 「精简·PTC v3」/ balance 预设 + plan-mode；对整个 profile 覆盖 `ptc-runtime`（0.3.3 是误发版，勿装） |
 | `dsh-block-ptc` | 0.5.0 | 已装（**待重启**） | Block PTC 预设/工具：AI 自主决定何时压缩上下文（需新会话选该预设） |
 | `dsh-ops` | 0.5.5 | 已加载（默认隐藏 pwsh/官方工具） | ops 工具族 + 随包 bash 运行时；**当前会话工具面已从 `pwsh` 换成 `ops_bash`/`ops_*`** |
+| `dsh-session-model` | 0.1.0 | 已装（**待重启**） | 会话头部显示当前模型（主会话 + 子智能体会话），切换模型实时刷新 |
 
-- profile 现在 **12 个 bundle、10 个依赖**
-- 配置解析：**2187 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops；
+- profile 现在 **13 个 bundle、11 个依赖**
+- 配置解析：**2186 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops + session-model；
   唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
 - git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
@@ -47,7 +48,9 @@
   不想让 pwsh 消失：插件页 → dsh-ops → 关掉隐藏项 → 再重启；或直接 `dsh plugin remove dsh-ops`；
 - radar 增量：`docs/DSH雷达增量-最新.md`；手动刷新 `node tools/radar-refresh.mjs`，
   Windows 计划任务 `DSH-Radar-Refresh` 每周一 09:30 自动跑（试跑 lastResult=0）；
-- 客户端插件 turn-tps v0.4.3 仍需**刷新页面**确认「重置」小灰字链接（见上方观察项）。
+- 客户端插件 turn-tps v0.4.3 仍需**刷新页面**确认「重置」小灰字链接（见上方观察项）；
+- **dsh-session-model v0.1.0**（会话头部模型徽章）也随本次重启加载：
+  主会话头部应显示「模型名 · effort」，从花名册点开**子智能体会话**也应有自己的徽章，切模型实时刷新。
 
 其余状态：Driftglass、dsh-mnemon、Mnemon Native CLI 均已在跑；记忆空间「工作记忆」
 （id `default`，provider `mnemon-native`）已创建并 **active**。
@@ -116,7 +119,7 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 1178 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1209 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
 - `docs/DSH雷达增量-最新.md` —— radar 自动增量（每周一更新），由 `tools/radar-refresh.mjs` 生成
