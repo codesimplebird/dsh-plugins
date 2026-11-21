@@ -120,8 +120,14 @@ window.__ModuleLoader__.load({
   color: var(--dsw-alias-label-tertiary);
   font-weight: 400;
 }
+/* Class is only the no-JS fallback: the live font size, line height and colour
+   are copied from the row's clock element into inline styles at insertion time,
+   because the node is a sibling of the icon row (not a child), so it inherits
+   the wrong typography otherwise. */
 .${CLS.taskTime} {
   display: block;
+  width: 100%;
+  box-sizing: border-box;
   margin: 2px 0 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
@@ -351,16 +357,41 @@ window.__ModuleLoader__.load({
 
     // ---- task total under the newest message footer ------------------------
     //
-    // The footer row ("用量 … tok · 11月20日 23:24") belongs to
-    // @deepseek-ai/dsh-client-ui-chat: it carries per-turn usage but no wall
-    // clock. The stats view this plugin already consumes knows each turn's
-    // `wall`, so their sum is published here and mirrored under the newest
-    // footer. Anchoring stays textual because component class names are hashed
-    // per build.
+    // The footer row ("用量 … tok · 15:05") belongs to
+    // @deepseek-ai/dsh-client-ui-chat. The shipped markup nests the usage
+    // trigger two flex rows deep:
+    //
+    //   <div class="TurnTailNodeView_root" data-turn-tail="N">   column, gap 16
+    //     <div class="MessageIconActions_actions …" data-clock="end">  row, 28px
+    //       <button copy/> … <button branch/>
+    //       <span class="MessageIconActions_endInfo">          inline-flex
+    //         <span class="TurnUsagePanel_root"><button aria-haspopup="dialog">用量 …</button></span>
+    //         <span class="MessageIconActions_timeEnd">15:05</span>
+    //       </span>
+    //     </div>
+    //   </div>
+    //
+    // Climbing to the first element that has a clock sibling therefore lands on
+    // `endInfo` and leaves the annotation inside the icon row. The official row
+    // carries the stable `data-clock` attribute, which is the primary anchor;
+    // the textual walk is only a fallback for older/foreign markup.
+    //
+    // The annotation is placed directly after that row inside the column that
+    // stacks chat rows, then verified with layout rects. The column's flex gap
+    // (16px in the shipped stylesheet) is cancelled with a one-off negative
+    // margin so the line reads ~4px under the actions row.
     const TASK_TIME_ATTR = 'data-dtt-task-time'
+    const TASK_TIME_GAP = 4
+    const CLOCKISH_TEXT = /(\d{1,2}:\d{2})|(\d{1,2}月\d{1,2}日)|(\d{1,2}\/\d{1,2})/u
+    const CLOCK_ONLY_TEXT = /^\d{1,2}:\d{2}$/u
+    const CLOCK_DATE_TEXT = /^(\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})\s+\d{1,2}:\d{2}$/u
+    const FOOTER_HINTS = '[data-clock],[data-turn-tail]'
+    const FOOTER_TRIGGER = 'button[aria-haspopup="dialog"]'
     let taskTimeText = null
     let taskSyncScheduled = false
     let lastTaskText = null
+    /** Cached { node, row } of the last placement; lets the observer skip a scan. */
+    let taskAnchor = null
 
     function currentDict() {
       try {
@@ -383,8 +414,48 @@ window.__ModuleLoader__.load({
       return found
     }
 
-    /** The flex row that also holds the message clock; returned as the row. */
-    function footerRowOf(trigger) {
+    /** True when the element lays its children out top to bottom. */
+    function isStackingContainer(element) {
+      try {
+        const style = getComputedStyle(element)
+        const display = style.display
+        if (display === 'flex' || display === 'inline-flex') return /^column/u.test(style.flexDirection || '')
+        return display === 'block' || display === 'flow-root' || display === 'list-item'
+      } catch (error) {
+        return false
+      }
+    }
+
+    /** True when a direct child's text carries a clock or date stamp. */
+    function hasClockChild(element) {
+      try {
+        for (const child of element.children) {
+          const text = (child.textContent || '').trim()
+          if (text !== '' && CLOCKISH_TEXT.test(text)) return true
+        }
+      } catch (error) {
+        // Detached or exotic node.
+      }
+      return false
+    }
+
+    /** The row's clock span: the one whose entire text is a time (or date + time). */
+    function clockElementOf(row) {
+      try {
+        for (const pattern of [CLOCK_ONLY_TEXT, CLOCK_DATE_TEXT]) {
+          for (const element of row.querySelectorAll('span')) {
+            const text = (element.textContent || '').trim()
+            if (text !== '' && pattern.test(text)) return element
+          }
+        }
+      } catch (error) {
+        // Fall through to the default typography.
+      }
+      return null
+    }
+
+    /** Pre-data-clock placement: the parent whose children carry the clock. */
+    function legacyFooterRowOf(trigger) {
       let node = trigger
       for (let depth = 0; depth < 4 && node !== null; depth += 1) {
         const parent = node.parentElement
@@ -392,7 +463,7 @@ window.__ModuleLoader__.load({
         const hasClock = Array.from(parent.children).some((child) => {
           if (child === node) return false
           const text = (child.textContent || '').trim()
-          return text !== '' && /(\d{1,2}:\d{2})|(\d{1,2}月\d{1,2}日)|(\d{1,2}\/\d{1,2})/u.test(text)
+          return text !== '' && CLOCKISH_TEXT.test(text)
         })
         if (hasClock) return parent
         node = parent
@@ -400,29 +471,223 @@ window.__ModuleLoader__.load({
       return trigger.parentElement
     }
 
+    /** The real icon/clock row for a usage trigger. */
+    function footerRowOf(trigger) {
+      // Official builds stamp the row with data-clock; it is the only stable
+      // hook, because component class names are hashed per build.
+      try {
+        const official = trigger.closest('[data-clock]')
+        if (official !== null && official !== document.body && official !== document.documentElement) return official
+      } catch (error) {
+        // Fall through to the textual walk.
+      }
+      // Older/foreign markup: the first ancestor that carries a clock child and
+      // sits inside a column, i.e. a line of the transcript rather than a
+      // nested icon cluster.
+      try {
+        let node = trigger
+        for (let depth = 0; depth < 6 && node !== null; depth += 1) {
+          const parent = node.parentElement
+          if (parent !== null && parent !== document.body && parent !== document.documentElement
+            && hasClockChild(node) && isStackingContainer(parent)) {
+            return node
+          }
+          node = parent
+        }
+      } catch (error) {
+        // Fall through to the legacy heuristic.
+      }
+      return legacyFooterRowOf(trigger)
+    }
+
+    /** True when the container keeps its children on one horizontal line. */
+    function stacksHorizontally(element) {
+      try {
+        const style = getComputedStyle(element)
+        const isFlex = style.display === 'flex' || style.display === 'inline-flex'
+        return isFlex && !/^column/u.test(style.flexDirection || '')
+      } catch (error) {
+        return false
+      }
+    }
+
+    /**
+     * Copy the clock's computed typography onto the annotation inline. Classes
+     * alone are not enough: the annotation is a sibling of the icon row, not a
+     * child of it, so it inherits the wrong size/colour.
+     */
+    function styleTaskNode(node, row) {
+      node.className = CLS.taskTime
+      const style = node.style
+      style.display = 'block'
+      style.width = '100%'
+      style.boxSizing = 'border-box'
+      style.whiteSpace = 'nowrap'
+      style.fontVariantNumeric = 'tabular-nums'
+      style.margin = '2px 0 0'
+      style.fontSize = ''
+      style.lineHeight = ''
+      style.color = ''
+      const clock = clockElementOf(row)
+      if (clock !== null) {
+        try {
+          const computed = getComputedStyle(clock)
+          if (computed.fontSize) style.fontSize = computed.fontSize
+          if (computed.lineHeight && computed.lineHeight !== 'normal') style.lineHeight = computed.lineHeight
+          if (computed.color) style.color = computed.color
+        } catch (error) {
+          // Defaults below still render a legible line.
+        }
+      }
+      if (style.fontSize === '') style.fontSize = '12px'
+      if (style.lineHeight === '') style.lineHeight = '18px'
+      if (style.color === '') style.color = 'var(--dsw-alias-label-tertiary, #9b9da3)'
+    }
+
+    /** Vertical distance between the row's bottom and the node's top, if laid out. */
+    function measureTaskGap(node, row) {
+      try {
+        const rowRect = row.getBoundingClientRect()
+        const nodeRect = node.getBoundingClientRect()
+        if (rowRect.height === 0 || nodeRect.height === 0) return null
+        return nodeRect.top - rowRect.bottom
+      } catch (error) {
+        return null
+      }
+    }
+
+    /**
+     * The column stacks its children with a flex gap (16px in the shipped
+     * stylesheet). Measure the live gap once after insertion, then cancel all
+     * but ~TASK_TIME_GAP px with a negative margin. Insertion-time only.
+     */
+    function calibrateTaskGap(node, row) {
+      const gap = measureTaskGap(node, row)
+      if (gap === null || gap <= 8) return
+      const current = Number.parseFloat(node.style.marginTop) || 0
+      const next = Math.round((current + TASK_TIME_GAP - gap) * 100) / 100
+      if (Number.isFinite(next)) node.style.marginTop = next + 'px'
+    }
+
+    /**
+     * Put the annotation directly after the row, climbing one level at a time
+     * while the container still keeps both on one line (max 3 attempts). The
+     * layout rect is the acceptance test: the node must start on a later line.
+     */
+    function insertTaskNode(node, row) {
+      let container = row.parentElement
+      let anchor = row
+      let measured = null
+      for (let depth = 0; depth < 3 && container !== null; depth += 1) {
+        if (container === document.body || container === document.documentElement) break
+        try {
+          container.insertBefore(node, anchor.nextSibling)
+        } catch (error) {
+          break
+        }
+        styleTaskNode(node, row)
+        const gap = measureTaskGap(node, row)
+        if (gap !== null) measured = gap
+        if (gap !== null && gap >= -1) {
+          calibrateTaskGap(node, row)
+          taskAnchor = { node, row }
+          return true
+        }
+        // Still level with the icon row: only a flex row can cause that, so
+        // retry one level higher.
+        const parent = container.parentElement
+        if (parent === null || !stacksHorizontally(container)) break
+        anchor = container
+        container = parent
+      }
+      // Measured but never below the row: that is the reported bug (annotation
+      // glued to the clock). Drop it rather than leave it in the wrong place.
+      if (measured !== null) {
+        node.remove()
+        return false
+      }
+      // Layout unavailable (hidden/detached): keep the best-effort position.
+      if (node.isConnected) {
+        taskAnchor = { node, row }
+        return true
+      }
+      return false
+    }
+
+    /** True when a mutation batch attaches markup that may contain a footer row. */
+    function mutationAddsFooter(records) {
+      try {
+        for (const record of records) {
+          if (record.type !== 'childList') continue
+          for (const added of record.addedNodes) {
+            if (added.nodeType !== 1) continue
+            // The current official row (data-clock), the turn-tail wrapper, or
+            // the textual-fallback shape (a usage dialog trigger) all mean the
+            // newest annotation target may have changed.
+            if (added.matches(FOOTER_HINTS) || added.querySelector(FOOTER_HINTS) !== null) return true
+            if (added.matches(FOOTER_TRIGGER) || added.querySelector(FOOTER_TRIGGER) !== null) return true
+          }
+        }
+        return false
+      } catch (error) {
+        return true // Conservative: let the next sync rescan.
+      }
+    }
+
+    /** Remove every annotation, including a detached-but-cached one. */
+    function removeTaskNodes() {
+      try {
+        for (const node of document.querySelectorAll('[' + TASK_TIME_ATTR + ']')) node.remove()
+      } catch (error) {
+        // No document to clean.
+      }
+      taskAnchor = null
+    }
+
     function syncTaskTime() {
       try {
         if (typeof document === 'undefined') return
-        const existing = Array.from(document.querySelectorAll('[' + TASK_TIME_ATTR + ']'))
+        // Cheap path: the observer fires on every streamed token, and while the
+        // annotation already sits directly after the newest row with unchanged
+        // text nothing needs a document-wide scan. A newly attached footer
+        // invalidates taskAnchor in the observer callback.
+        const cached = taskAnchor
+        if (cached !== null && taskTimeText !== null
+          && cached.node.isConnected && cached.row.isConnected
+          && cached.node.previousElementSibling === cached.row
+          && cached.node.textContent === taskTimeText) {
+          return
+        }
+        if (taskTimeText === null) {
+          removeTaskNodes()
+          return
+        }
         const triggers = usageTriggers()
-        if (taskTimeText === null || triggers.length === 0) {
-          for (const node of existing) node.remove()
+        if (triggers.length === 0) {
+          removeTaskNodes()
           return
         }
         const row = footerRowOf(triggers[triggers.length - 1])
         if (row === null || row.parentElement === null) {
-          for (const node of existing) node.remove()
+          removeTaskNodes()
           return
         }
+        const existing = Array.from(document.querySelectorAll('[' + TASK_TIME_ATTR + ']'))
         let node = existing[existing.length - 1] ?? null
         for (const stale of existing) if (stale !== node) stale.remove()
         if (node === null) {
           node = document.createElement('div')
           node.setAttribute(TASK_TIME_ATTR, '')
-          node.className = CLS.taskTime
         }
         if (node.textContent !== taskTimeText) node.textContent = taskTimeText
-        if (row.nextElementSibling !== node) row.parentElement.insertBefore(node, row.nextSibling)
+        if (node.isConnected && node.previousElementSibling === row) {
+          taskAnchor = { node, row }
+          return
+        }
+        if (!insertTaskNode(node, row)) {
+          node.remove()
+          taskAnchor = null
+        }
       } catch (error) {
         // Annotation is cosmetic; never surface a failure.
       }
@@ -771,10 +1036,17 @@ window.__ModuleLoader__.load({
       // The footer row is re-rendered by chat on every message update, so the
       // annotation is re-applied whenever the document changes underneath it.
       if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(() => scheduleTaskSync())
+        const observer = new MutationObserver((records) => {
+          // A footer attached later in flow becomes the newest annotation
+          // target; invalidating the cached placement makes the next sync
+          // rescan. Every other (streamed) mutation keeps the cheap path.
+          if (taskAnchor !== null && mutationAddsFooter(records)) taskAnchor = null
+          scheduleTaskSync()
+        })
         observer.observe(document.body, { childList: true, subtree: true, characterData: true })
         ctx.effect(() => () => {
           observer.disconnect()
+          taskAnchor = null
           for (const node of document.querySelectorAll('[' + TASK_TIME_ATTR + ']')) node.remove()
         }, 'turn-tps: footer observer')
       }
