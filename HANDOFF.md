@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-21 22:23（turn-tps v0.4.4：每轮对话显示所用模型；见优化记录第三十轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-23 21:58（OpenCode Go 额度面板 usage-stats 0.3.8 已装待重启；见优化记录第三十一轮）。
 
 ## 这是什么
 
@@ -27,40 +27,39 @@
 | `dsh-hide-completed-subagents` | 0.1.0 | 已卸载（留档） | 隐藏已完成行；被上一个取代 |
 | `dsh-driftglass` | 1.5.0 | 已加载 | 第三方玻璃主题（Aqua 的 0.2.2 移植版），设置→通用→外观 里开关 |
 | `dsh-mnemon` | 0.5.50 | 已加载 | 长期记忆（npm 源，侧栏「Memory System」）；Mnemon Native CLI 0.2.14；记忆空间「工作记忆」(`default`) 已激活 |
-| `dsh-flash-presets` | 0.3.2 | 已装（**待重启**选预设） | 「精简·PTC v3」/ balance 预设 + plan-mode；对整个 profile 覆盖 `ptc-runtime`（0.3.3 是误发版，勿装） |
-| `dsh-block-ptc` | 0.5.0 | 已装（**待重启**） | Block PTC 预设/工具：AI 自主决定何时压缩上下文（需新会话选该预设） |
+| `dsh-flash-presets` | 0.3.2 | 已加载（11-23 重启后） | 「精简·PTC v3」/ balance 预设；对整个 profile 覆盖 `ptc-runtime`（0.3.3 是误发版，勿装）；plan-mode-ui 组件已禁用 |
+| `dsh-block-ptc` | 0.5.0 | 已加载（11-23 重启后） | Block PTC 预设/工具：AI 自主决定何时压缩上下文（需新会话选该预设） |
 | `dsh-ops` | 0.5.5 | 已加载（默认隐藏 pwsh/官方工具） | ops 工具族 + 随包 bash 运行时；**当前会话工具面已从 `pwsh` 换成 `ops_bash`/`ops_*`** |
-| `dsh-session-model` | 0.1.0 | 已装（**待重启**） | 会话头部显示当前模型（主会话 + 子智能体会话），切换模型实时刷新 |
+| `dsh-session-model` | 0.1.0 | 已加载（11-23 重启后） | 会话头部显示当前模型（主会话 + 子智能体会话），切换模型实时刷新 |
+| `@ychris12138/dsh-usage-stats` | 0.3.8 | 已装（**待重启**） | 供应商余额/订阅额度面板：OpenCode Go 的 5 小时 / 周 / 月窗口，侧栏「用量/余额」 |
+| `@xiazhi88/dshgo` | 2.0.5 | 已加载（11-22 另装） | 手机 DSH Go 局域网入口（0.0.0.0:3081 → 2939），设置里「局域网访问」 |
 
-- profile 现在 **13 个 bundle、11 个依赖**
-- 配置解析：**2186 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops + session-model；
-  唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
+- profile 现在 **15 个 bundle、13 个依赖**（含 11-22 另装的 `@xiazhi88/dshgo`）
+- 配置解析：**2195 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops +
+  session-model + usage-stats；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
 - git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
 ## 唯一未完成的事
 
-**需要用户重启一次 DSH**（host 侧插件/preset 生效）：本次装了 `dsh-flash-presets`、`dsh-block-ptc`、
-`dsh-ops`。重启后：
+**再重启一次 DSH**：`@ychris12138/dsh-usage-stats@0.3.8` 已装进 profile，host 半要重启才加载。
+重启后侧栏底部会出现「用量/余额」：
 
-- **设置 → 预设** 切到「精简·PTC v3」（或「balance」）——省 token 的主力；
-- 想试 Block PTC：**新会话**里选该预设（压缩行为按它自己的规则走）；
-- **命令工具已变成 `ops_bash`**（dsh-ops 默认 `hidePwsh/hideOfficialTools: true`，本会话已生效）。
-  不想让 pwsh 消失：插件页 → dsh-ops → 关掉隐藏项 → 再重启；或直接 `dsh plugin remove dsh-ops`；
-- radar 增量：`docs/DSH雷达增量-最新.md`；手动刷新 `node tools/radar-refresh.mjs`，
-  Windows 计划任务 `DSH-Radar-Refresh` 每周一 09:30 自动跑（试跑 lastResult=0）；
-- 客户端插件 turn-tps **v0.4.4** 仍需**刷新页面**（客户端插件刷新即载入）：
-  每条助手消息的时间旁应出现 `provider/model` 标签、旧消息随 hover 显示；「重置」仍是小灰字链接。
-  切换模型后再跑一轮，新消息标签应变、旧消息保持各自模型（见上方观察项）；
-- **dsh-session-model v0.1.0**（会话头部模型徽章）也随本次重启加载：
-  主会话头部应显示「模型名 · effort」，从花名册点开**子智能体会话**也应有自己的徽章，切模型实时刷新。
+- 选「**OpenCode Go**」卡片 → **5 小时 / 周 / 月**三条进度条 + 各自重置时间（数据源
+  `opencode.ai/inference/go/v1/usage`）；侧栏标签显示「月剩余 N%」
+- 点刷新可手动更新；也可开「跟随当前会话」自动跟随当前会话的 provider
+- 2026-11-23 12:07 已重启加载：flash 预设、Block PTC、dsh-session-model、dsh-ops、dshgo；
+  turn-tps 的每轮模型标签若没看到，**刷新页面**即可（客户端插件）
+- 其余照旧：radar 增量 `docs/DSH雷达增量-最新.md`（周一 09:30 自动跑）；预设可选「精简·PTC v3」
 
 其余状态：Driftglass、dsh-mnemon、Mnemon Native CLI 均已在跑；记忆空间「工作记忆」
 （id `default`，provider `mnemon-native`）已创建并 **active**。
 
 观察项（有问题再处理）：
 
-- 三个新插件的净效果：用 turn-tps 药丸对比同任务 token/轮数；flash 预设 vs 官方 PTC 预设各跑一次
-- 「重置」小灰字链接是否正常（v0.4.3）；每轮模型标签是否与官方用量弹窗的「模型」行一致（v0.4.4）；
+- usage-stats 的 OpenCode Go 卡片若显示 unauthorized：先确认已重启，再看 `OPENCODE_API_KEY`
+  是否可用（有效值在 `OPENCODE_GO_API_KEY`，2026-11-23 已对齐）
+- 预设净效果：用 turn-tps 药丸对比同任务 token/轮数；flash 预设 vs 官方 PTC 预设各跑一次
+- 「重置」小灰字链接（v0.4.3）；每轮模型标签是否与官方用量弹窗的「模型」行一致（v0.4.4）；
   间距偏紧/偏松只调 `TASK_TIME_GAP`
 - 下一轮起 `mnemon_recall` 应可用；试一次召回看质量；玻璃主题观感：设置 → 通用 → 外观
 
@@ -119,6 +118,14 @@
       只禁用这个组件，`flash-presets-core` 两个预设照常可用；回滚就删掉这三行。
     - 作者自身的用户开关：输入区计划面板 → 档位「关闭 / 轻量 / 全量」（off = 不规划、不注入）
 
+16. **OpenCode Go 额度查询**：`GET https://opencode.ai/inference/go/v1/usage`（Bearer = 有效
+    `OPENCODE_GO_API_KEY`；旧路径 `/zen/go/v1/usage`）→ `usage.rolling/weekly/monthly`
+    各含 `status/percent/resetsAt`（5 小时 / 周 / 月窗口）。面板用 `@ychris12138/dsh-usage-stats@0.3.8`
+    （侧栏底部「用量/余额」）。**坑**：它默认先读 `OPENCODE_API_KEY`，只有**缺失**才回退
+    `OPENCODE_GO_API_KEY`；本机 11-23 前 `OPENCODE_API_KEY` 已过期（401），已把它对齐成可用的 GO key
+    （备份 `~/.dsh/backups-credentials-20261123.bak`，**凭据永不进 git**）。未加 scope 的
+    `dsh-usage-stats`（npm 0.1.16）inject 了已删除的 `dsh-client-runtime`，0.2.2 上不能用。
+
 ## 自测方式
 
 ```powershell
@@ -134,7 +141,7 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 1238 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1295 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
 - `docs/DSH雷达增量-最新.md` —— radar 自动增量（每周一更新），由 `tools/radar-refresh.mjs` 生成

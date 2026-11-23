@@ -1,0 +1,38 @@
+{
+  "name": "dsh-profile-desktop",
+  "private": true,
+  "dependencies": {
+    "@huanlin/dsh-plugin-session-delete": "github:lsz-asd/dsh-plugin-session-delete",
+    "@xiazhi88/dshgo": "2.0.5",
+    "dsh-block-ptc": "0.5.0",
+    "dsh-connect-workbuddy": "4.9.2",
+    "dsh-driftglass": "github:realhenrylan/DSH-Transparent-UI-Plugin#main",
+    "dsh-flash-presets": "0.3.2",
+    "dsh-mnemon": "^0.5.50",
+    "dsh-ops": "^0.5.5",
+    "dsh-remote-harness": "^0.1.17",
+    "dsh-session-model": "file:C:/dev/dsh-optimize/plugins/dsh-session-model",
+    "dsh-subagent-running-count": "file:C:/dev/dsh-optimize/plugins/dsh-subagent-running-count",
+    "dsh-turn-tps": "file:C:/dev/dsh-optimize/plugins/dsh-turn-tps"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "@deepseek-ai/dsh-experimental-plugin-market-bundle",
+        "dsh-remote-harness",
+        "@huanlin/dsh-plugin-session-delete",
+        "dsh-subagent-running-count",
+        "dsh-driftglass",
+        "dsh-mnemon",
+        "dsh-flash-presets",
+        "dsh-block-ptc",
+        "dsh-ops",
+        "dsh-session-model",
+        "dsh-turn-tps",
+        "@xiazhi88/dshgo"
+      ]
+    }
+  }
+}
