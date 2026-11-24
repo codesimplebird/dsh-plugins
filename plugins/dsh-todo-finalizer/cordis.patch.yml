@@ -1,0 +1,4 @@
+# dsh-todo-finalizer bundle layer: mounts the host-side todo finalizer.
+- insert:
+    - id: todo-finalizer
+      name: 'dsh-todo-finalizer'

@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-23 21:58（OpenCode Go 额度面板 usage-stats 0.3.8 已装待重启；见优化记录第三十一轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-24 23:10（新增 dsh-todo-finalizer：回合结束自动收尾任务面板；见优化记录第三十二轮）。
 
 ## 这是什么
 
@@ -31,25 +31,26 @@
 | `dsh-block-ptc` | 0.5.0 | 已加载（11-23 重启后） | Block PTC 预设/工具：AI 自主决定何时压缩上下文（需新会话选该预设） |
 | `dsh-ops` | 0.5.5 | 已加载（默认隐藏 pwsh/官方工具） | ops 工具族 + 随包 bash 运行时；**当前会话工具面已从 `pwsh` 换成 `ops_bash`/`ops_*`** |
 | `dsh-session-model` | 0.1.0 | 已加载（11-23 重启后） | 会话头部显示当前模型（主会话 + 子智能体会话），切换模型实时刷新 |
-| `@ychris12138/dsh-usage-stats` | 0.3.8 | 已装（**待重启**） | 供应商余额/订阅额度面板：OpenCode Go 的 5 小时 / 周 / 月窗口，侧栏「用量/余额」 |
+| `@ychris12138/dsh-usage-stats` | 0.3.8 | 已加载（11-24 重启后） | 供应商余额/订阅额度面板：OpenCode Go 的 5 小时 / 周 / 月窗口，侧栏「用量/余额」 |
+| `dsh-todo-finalizer` | 0.1.0 | 已装（**待重启**） | 正常完成的回合结束时，把本回合未收尾的 todo 清单自动标 completed，任务面板不再挂旧状态 |
 | `@xiazhi88/dshgo` | 2.0.5 | 已加载（11-22 另装） | 手机 DSH Go 局域网入口（0.0.0.0:3081 → 2939），设置里「局域网访问」 |
 
-- profile 现在 **15 个 bundle、13 个依赖**（含 11-22 另装的 `@xiazhi88/dshgo`）
-- 配置解析：**2195 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops +
-  session-model + usage-stats；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
+- profile 现在 **16 个 bundle、14 个依赖**（含 11-22 另装的 `@xiazhi88/dshgo`）
+- 配置解析：**2198 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops +
+  session-model + usage-stats + todo-finalizer；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
 - git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
 ## 唯一未完成的事
 
-**再重启一次 DSH**：`@ychris12138/dsh-usage-stats@0.3.8` 已装进 profile，host 半要重启才加载。
-重启后侧栏底部会出现「用量/余额」：
+**再重启一次 DSH**：`dsh-todo-finalizer@0.1.0` 已装进 profile，host 半要重启才加载。
+重启后任何**正常完成**的回合，任务面板都会在回合结束瞬间把最后清单标成全部 completed，
+不会再出现「对话已完成、任务显示 2 未完成」；被中断/报错的回合保持原样（那是真实状态）。
 
-- 选「**OpenCode Go**」卡片 → **5 小时 / 周 / 月**三条进度条 + 各自重置时间（数据源
-  `opencode.ai/inference/go/v1/usage`）；侧栏标签显示「月剩余 N%」
-- 点刷新可手动更新；也可开「跟随当前会话」自动跟随当前会话的 provider
+- 顺带确认侧栏「用量/余额」→ OpenCode Go 的 5 小时 / 周 / 月三个窗口（11-24 已重启加载）。
 - 2026-11-23 12:07 已重启加载：flash 预设、Block PTC、dsh-session-model、dsh-ops、dshgo；
-  turn-tps 的每轮模型标签若没看到，**刷新页面**即可（客户端插件）
-- 其余照旧：radar 增量 `docs/DSH雷达增量-最新.md`（周一 09:30 自动跑）；预设可选「精简·PTC v3」
+  turn-tps 的每轮模型标签若没看到，**刷新页面**即可（客户端插件）。
+- 其余照旧：radar 增量 `docs/DSH雷达增量-最新.md`（周一 09:30 自动跑）；预设默认仍是 standard
+  （flash 预设压缩激进，按「效果优先」不设默认，手动按需切）。
 
 其余状态：Driftglass、dsh-mnemon、Mnemon Native CLI 均已在跑；记忆空间「工作记忆」
 （id `default`，provider `mnemon-native`）已创建并 **active**。
@@ -126,6 +127,12 @@
     （备份 `~/.dsh/backups-credentials-20261123.bak`，**凭据永不进 git**）。未加 scope 的
     `dsh-usage-stats`（npm 0.1.16）inject 了已删除的 `dsh-client-runtime`，0.2.2 上不能用。
 
+17. **任务面板（TodoDock）读的是 `todos` 投影，不是工具调用历史**：`@deepseek-ai/dsh-tool-todo` 的投影规则是
+    `todo/write` 覆盖、`turn/start` 清空、`turn/end` **保留最后清单**。所以回合结束时若最后一份清单还有
+    pending/in_progress，面板会一直显示未完成（不是渲染 bug）。`dsh-todo-finalizer` 在正常完成
+    （`reason.kind === 'completed'`）的 `turn/end` 追加一条全 completed 的 `todo/write` 收尾；中断/报错的回合不动。
+    验证时看输入区上方那个「任务 N 已完成」面板即可。
+
 ## 自测方式
 
 ```powershell
@@ -141,7 +148,7 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 1295 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1322 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
 - `docs/DSH雷达增量-最新.md` —— radar 自动增量（每周一更新），由 `tools/radar-refresh.mjs` 生成

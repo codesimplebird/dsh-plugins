@@ -1,0 +1,26 @@
+{
+  "name": "dsh-todo-finalizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Finalizes a session's todo list when a turn completes normally, so the task panel never shows a stale unfinished plan.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin"
+  ],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "test"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
