@@ -3,3 +3,18 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# 本地环境 / 个人数据（不入库）
+backups/
+lab/
+HANDOFF.md
+.credentials.yaml
+.credentials.example.yaml.bak
+sessions/
+storages/
+*.log
+*.sentinel
+run/
+dist/
+.DS_Store
+Thumbs.db

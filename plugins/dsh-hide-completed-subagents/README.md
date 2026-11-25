@@ -30,7 +30,7 @@ DSH 0.2.2 的 `@deepseek-ai/dsh-client-ui-subagent` 把每个子智能体都留�
 ## 安装 / 卸载
 
 ```powershell
-dsh plugin --profile desktop add file:C:\Users\14834\.dsh\plugins\dsh-hide-completed-subagents
+dsh plugin --profile desktop add file:%USERPROFILE%\.dsh\plugins\dsh-hide-completed-subagents
 dsh plugin --profile desktop remove dsh-hide-completed-subagents
 ```
 

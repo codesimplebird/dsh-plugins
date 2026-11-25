@@ -183,7 +183,7 @@
     - id: tool-subagent-list-agents
       name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
 
-                                                                                                # ==== AGENT-SUBMODEL-BEGIN ====
+                        # ==== AGENT-SUBMODEL-BEGIN ====
     # Managed by the OpenCode usage settings UI (sub-model fields). Do not edit by hand.
     # NOTE: agentOptions requires all three fields (provider/model/maxTokens).
     - id: tool-subagent

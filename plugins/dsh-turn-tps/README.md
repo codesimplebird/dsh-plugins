@@ -113,7 +113,7 @@ ctx.uiConversation.binding(sessionId).target('stats').getSnapshot()
 ## 安装 / 卸载
 
 ```powershell
-dsh plugin --profile desktop add file:C:\Users\14834\.dsh\plugins\dsh-turn-tps
+dsh plugin --profile desktop add file:%USERPROFILE%\.dsh\plugins\dsh-turn-tps
 dsh plugin --profile desktop remove dsh-turn-tps
 ```
 

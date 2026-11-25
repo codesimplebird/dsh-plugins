@@ -1,61 +1,71 @@
-# DSH 优化工程
+# DSH 优化工程（dsh-optimize）
 
-这台机器上所有「优化 DSH」的工作集中在这里，带 git 版本控制。
+面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的**插件与配置优化集合**：自研客户端/宿主插件、可直接抄的 profile 配置示例、逐轮优化记录，以及一个可选的主/子代理分层预设。
 
-## 结构
+![每轮模型与任务总用时](docs/images/turn-tps-footer.png)
+![子智能体花名册](docs/images/roster-preview.png)
+
+## 包含什么
 
 ```
-C:\dev\dsh-optimize\
-├─ plugins\     自制 DSH 插件源码（通过 file: 安装到 profile）
-├─ docs\        优化记录、GitHub 项目清单
-├─ backups\     改配置前的备份
-└─ lab\         浏览器测试页、预览截图
+.
+├─ plugins/                     自研 DSH 插件源码（file: 方式安装）
+│  ├─ dsh-turn-tps/             本轮 tok/s 药丸、用量面板、任务总用时、每轮模型标签
+│  ├─ dsh-subagent-running-count/  胶囊只显示运行中子智能体数；花名册创建时间/排序/折叠
+│  ├─ dsh-session-model/        会话头部显示当前模型（主会话 + 子智能体会话）
+│  ├─ dsh-todo-finalizer/       正常完成的回合自动收尾任务面板（不再挂旧状态）
+│  └─ dsh-hide-completed-subagents/  隐藏已完成行（已被上一个取代，留档）
+├─ extras/                      可选的配置与工具
+│  ├─ planner-executor/         主 pro 规划 / 子 flash 执行的 agent 预设
+│  ├─ launcher/                 Windows 一键启停脚本（dsh web）
+│  ├─ credentials.example.yaml  凭据模板
+│  └─ profile-examples.md       统计页 / 会话全文搜索 / 免费联网搜索等配置片段
+├─ docs/                        优化记录、可优化项目清单、雷达增量、截图
+├─ tools/                       小工具（radar 增量刷新脚本）
+└─ AGENTS.md                    本仓库给 agent 的工作约定
 ```
 
-## 插件
-
-| 插件 | 作用 | 状态 |
-|---|---|---|
-| `dsh-turn-tps` | 状态栏「本轮 tok/s」药丸 + 底部用量面板 | 已装 |
-| `dsh-subagent-running-count` | 胶囊只显示运行中子智能体数；花名册加创建时间、新→旧、超 5 条折叠 | 已装 |
-| `dsh-hide-completed-subagents` | 隐藏已完成行 | 已卸载，留档 |
-
-安装方式（profile 用**绝对路径**引用源码，换机器要改路径）：
+## 插件安装
 
 ```powershell
-dsh plugin --profile desktop add file:C:\dev\dsh-optimize\plugins\dsh-turn-tps
-dsh plugin --profile desktop add file:C:\dev\dsh-optimize\plugins\dsh-subagent-running-count
+# 换成你的 profile：desktop / web
+dsh plugin --profile desktop add "file:<本仓库路径>\plugins\dsh-turn-tps"
+# 插件源码改动后必须 remove + add 才会更新安装副本
+dsh plugin --profile desktop remove dsh-turn-tps
+dsh plugin --profile desktop add "file:<本仓库路径>\plugins\dsh-turn-tps"
 ```
 
-**改完源码必须 `remove` + `add`**，否则 pnpm 按 lockfile 判定「已是最新」不会重拷。
+装完**重启 DSH**（客户端插件在重启后刷新页面即可）。每个插件的 README 里写了具体功能、实现方式与测试方法。
 
-## 路径速查
+## 配置示例（extras/profile-examples.md）
 
-| 项 | 路径 |
+| 能力 | 做法 |
 |---|---|
-| DSH 家目录 | `C:\Users\14834\.dsh` |
-| 生效配置 | `~\.dsh\profiles\desktop\cordis.patch.yml` |
-| profile 依赖 | `~\.dsh\profiles\desktop\package.json` |
-| 安装目录（只读，别动） | `C:\Users\14834\AppData\Local\Programs\DeepSeek Harness` |
+| 对话页「统计」标签页（TPS / Token / 缓存 / 模型用时） | 启用 DSH 自带实验包 `@deepseek-ai/dsh-experimental-client-ui-stats` |
+| 历史会话**全文搜索**（FTS5） | 覆盖 `session-query-sqlite` 为持久化 SQLite，`openAt: first-search` |
+| 免费联网搜索（修 `web_search` 401） | 安装 `@liustack/modsearch` |
+| 关闭 flash 预设的计划模式组件 | profile 补丁 `disabled: true` |
+| 主 pro 规划 / 子 flash 执行 | `extras/planner-executor` 预设 |
 
-## 验证套路
+## 文档
 
-改 `cordis.patch.yml` 后，复制到临时 profile 跑配置校验（桌面 profile 不能直接 `--dump-config`）：
+- [优化记录](docs/DSH-优化记录-20261020.md)：逐轮「现象 / 根因 / 改动 / 验证」
+- [可优化项目清单](docs/DSH可优化项目清单-20261120.md) / [雷达增量-最新](docs/DSH雷达增量-最新.md)
+- [DSH 统计面板说明](docs/DSH统计面板-推荐说明.md)
 
-```powershell
-# 复制 cordis.patch.yml / cordis.yml / package.json / compatibility.json
-# junction 指向真实 node_modules，跑 dsh --profile <tmp> --dump-config
-# 结束前先 rmdir junction，再删目录（否则会删掉真实 node_modules）
-```
-
-插件自带测试：
+## 开发与测试
 
 ```powershell
-node plugins\dsh-subagent-running-count\test\smoke.mjs
-node plugins\dsh-subagent-running-count\test\roster-browser.mjs   # 生成页面后用 Chrome headless 跑
+node --check plugins/dsh-turn-tps/src/client.js
+node plugins/dsh-todo-finalizer/test/finalizer.mjs          # 纯 Node 单测
+node plugins/dsh-turn-tps/test/footer-time.mjs              # 生成测试页
+chrome --headless=new --dump-dom file:///<测试页>           # 浏览器断言
 ```
 
-## 铁律
+测试页镜像真实 DOM 结构（含 React fiber 数据），不是自造的简化页。
 
-- **不重启 DSH**：需要重启的改动改完告知用户，由用户重启。
-- 动配置前先备份到 `backups/`。
+## 致谢与许可
+
+- 灵感与部分配置参考：[`codesimplebird/dsh-all-in-one`](https://github.com/codesimplebird/dsh-all-in-one)（MIT）
+- 免费搜索：`@liustack/modsearch`；额度面板：`@ychris12138/dsh-usage-stats`
+- 本项目 [MIT](LICENSE)

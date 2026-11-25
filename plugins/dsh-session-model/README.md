@@ -30,7 +30,7 @@ DSH 默认只在输入区的模型选择器里显示当前模型；打开一个�
 ## 安装
 
 ```powershell
-dsh plugin --profile desktop add file:C:\dev\dsh-optimize\plugins\dsh-session-model
+dsh plugin --profile desktop add file:<repo>\plugins\dsh-session-model
 ```
 
 装完需要重启 DSH（host 侧 bundle 列表变化）。
