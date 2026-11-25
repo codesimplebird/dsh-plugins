@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DOCS = join(ROOT, 'docs')
 const RAW = 'https://raw.githubusercontent.com/AdamPlatin123/dsh-plugin-radar/main/data'
-const UA = { 'user-agent': 'dsh-optimize-radar-refresh' }
+const UA = { 'user-agent': 'dsh-plugins-radar-refresh' }
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')

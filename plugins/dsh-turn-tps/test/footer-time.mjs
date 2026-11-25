@@ -23,7 +23,7 @@
 //   chrome --headless=new --dump-dom --virtual-time-budget=3000 file:///.../tps-footer.html
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const PLUGIN = 'C:\\dev\\dsh-optimize\\plugins\\dsh-turn-tps\\src\\client.js';
+const PLUGIN = new URL('../src/client.js', import.meta.url);
 const bundle = readFileSync(PLUGIN, 'utf8');
 
 const html = `<!doctype html>
