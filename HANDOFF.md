@@ -1,6 +1,6 @@
 # 交接：DSH 优化工程
 
-> 换工作区后从这一页开始读。最后更新 2026-11-24 23:10（新增 dsh-todo-finalizer：回合结束自动收尾任务面板；见优化记录第三十二轮）。
+> 换工作区后从这一页开始读。最后更新 2026-11-25 18:50（会话全文搜索 + 免费联网搜索 modsearch；见优化记录第三十三轮）。
 
 ## 这是什么
 
@@ -33,22 +33,26 @@
 | `dsh-session-model` | 0.1.0 | 已加载（11-23 重启后） | 会话头部显示当前模型（主会话 + 子智能体会话），切换模型实时刷新 |
 | `@ychris12138/dsh-usage-stats` | 0.3.8 | 已加载（11-24 重启后） | 供应商余额/订阅额度面板：OpenCode Go 的 5 小时 / 周 / 月窗口，侧栏「用量/余额」 |
 | `dsh-todo-finalizer` | 0.1.0 | 已装（**待重启**） | 正常完成的回合结束时，把本回合未收尾的 todo 清单自动标 completed，任务面板不再挂旧状态 |
+| `@liustack/modsearch` | 5.10.16 | 已装（**待重启**） | 免费联网搜索：接管内置 `web_search` 的 provider（不再依赖失效的 DeepSeek search key），另加 `x_search` / `read_page` |
 | `@xiazhi88/dshgo` | 2.0.5 | 已加载（11-22 另装） | 手机 DSH Go 局域网入口（0.0.0.0:3081 → 2939），设置里「局域网访问」 |
 
-- profile 现在 **16 个 bundle、14 个依赖**（含 11-22 另装的 `@xiazhi88/dshgo`）
-- 配置解析：**2198 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops +
-  session-model + usage-stats + todo-finalizer；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
+- profile 现在 **17 个 bundle、15 个依赖**（含 11-22 另装的 `@xiazhi88/dshgo`）
+- 配置解析：**2206 行、0 异常**（含 Driftglass + mnemon + flash-presets + block-ptc + dsh-ops +
+  session-model + usage-stats + todo-finalizer + modsearch；唯一告警 `dsh-connect-workbuddy not found` 为安装前既有）
 - git：干净，提交见 `git log -1`（切区基线 `aa08ec7`）
 
 ## 唯一未完成的事
 
-**再重启一次 DSH**：`dsh-todo-finalizer@0.1.0` 已装进 profile，host 半要重启才加载。
-重启后任何**正常完成**的回合，任务面板都会在回合结束瞬间把最后清单标成全部 completed，
-不会再出现「对话已完成、任务显示 2 未完成」；被中断/报错的回合保持原样（那是真实状态）。
+**再重启一次 DSH**：`dsh-todo-finalizer@0.1.0` + `@liustack/modsearch@5.10.16` 已装进 profile，
+host 半要重启才加载。重启后：
 
-- 顺带确认侧栏「用量/余额」→ OpenCode Go 的 5 小时 / 周 / 月三个窗口（11-24 已重启加载）。
+- 任务面板：任何**正常完成**的回合结束瞬间，最后清单会被标成全部 completed，不再挂旧状态
+  （中断/报错的回合保持原样，那是真实状态）
+- 搜索：`web_search` 应恢复（改走 modsearch 免费引擎链，不再 401）；另有 `x_search` / `read_page`；
+  侧栏可**全文搜索历史会话正文**（首次搜索才建索引，db 在 `~/.dsh/storages/session-search.sqlite`）
+- 顺带确认侧栏「用量/余额」→ OpenCode Go 的 5 小时 / 周 / 月三个窗口（11-24 已重启加载）
 - 2026-11-23 12:07 已重启加载：flash 预设、Block PTC、dsh-session-model、dsh-ops、dshgo；
-  turn-tps 的每轮模型标签若没看到，**刷新页面**即可（客户端插件）。
+  turn-tps 的每轮模型标签若没看到，**刷新页面**即可（客户端插件）
 - 其余照旧：radar 增量 `docs/DSH雷达增量-最新.md`（周一 09:30 自动跑）；预设默认仍是 standard
   （flash 预设压缩激进，按「效果优先」不设默认，手动按需切）。
 
@@ -133,6 +137,18 @@
     （`reason.kind === 'completed'`）的 `turn/end` 追加一条全 completed 的 `todo/write` 收尾；中断/报错的回合不动。
     验证时看输入区上方那个「任务 N 已完成」面板即可。
 
+18. **搜索与历史检索（2026-11-25）**：
+    - 历史会话全文搜索：profile patch 覆盖官方 `session-query-sqlite` →
+      `path: !!js dshHomePath('storages/session-search.sqlite')`、`openAt: first-search`；
+      侧栏可搜历史会话**正文**（FTS5 持久索引，首次搜索才打开/建索引）。`dshHomePath` 是官方
+      支持的 `!!js` helper（asar loader 文档有例子）。
+    - 联网搜索：`@liustack/modsearch@5.10.16`（npm scoped，node≥22.13）bundle patch 把 web 接缝
+      `searchProvider` 改成 `modsearch`、保留 `fetchProvider: http`；内置 `web_search` 保留并改走免费
+      引擎链（Firecrawl 免注册→Keenable→agy→本地），不再依赖失效的 `DEEPSEEK_API_KEY`；
+      另注册 `x_search` / `read_page`。桌面 profile 用 CLI `dsh plugin --profile desktop add`
+      实测可以装（作者文档写"只能在 Electron UI 装"已过时）。
+    - 这两项来自用户自己的 `codesimplebird/dsh-all-in-one` 整合包。
+
 ## 自测方式
 
 ```powershell
@@ -148,7 +164,7 @@ chrome --headless=new --dump-dom file:///<那个路径>
 
 ## 文档
 
-- `docs/DSH-优化记录-20261020.md` —— 1322 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
+- `docs/DSH-优化记录-20261020.md` —— 1350 行，逐轮改动（现象/根因/改动/验证），**新改动追加在末尾**
 - `docs/DSH可优化项目清单-20261120.md` —— GitHub 上 63 个可优化 DSH 的项目
 - `docs/DSH生态项目清单-20261120.md` —— 同批数据的分类版
 - `docs/DSH雷达增量-最新.md` —— radar 自动增量（每周一更新），由 `tools/radar-refresh.mjs` 生成
