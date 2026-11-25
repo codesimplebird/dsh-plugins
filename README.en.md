@@ -1,4 +1,4 @@
-# dsh-optimize
+# dsh-plugins
 
 Plugins and configuration examples for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): per-turn model labels, task-time footer, subagent roster, session-level model badge, an automatic todo finalizer, plus copy-paste profile configs and a planner/executor agent preset.
 

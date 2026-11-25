@@ -1,4 +1,4 @@
-# DSH 优化工程（dsh-optimize）
+# DSH 插件与配置（dsh-plugins）
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的**插件与配置优化集合**：自研客户端/宿主插件、可直接抄的 profile 配置示例、逐轮优化记录，以及一个可选的主/子代理分层预设。
 
