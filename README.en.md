@@ -2,6 +2,8 @@
 
 Plugins and configuration examples for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): per-turn model labels, task-time footer, subagent roster, session-level model badge, an automatic todo finalizer, plus copy-paste profile configs and a planner/executor agent preset.
 
+> Compatibility: verified on **DSH 0.2.2-rc.5** (Windows / desktop profile). Each plugin ships its own test script; re-run them after a DSH upgrade.
+
 ## Layout
 
 ```

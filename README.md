@@ -2,6 +2,8 @@
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的**插件与配置优化集合**：自研客户端/宿主插件、可直接抄的 profile 配置示例、逐轮优化记录，以及一个可选的主/子代理分层预设。
 
+> 兼容性：已在 **DSH 0.2.2-rc.5**（Windows / desktop profile）上验证；每个插件目录带自测脚本，DSH 升级后建议重跑一遍。
+
 ![每轮模型与任务总用时](docs/images/turn-tps-footer.png)
 ![子智能体花名册](docs/images/roster-preview.png)
 
